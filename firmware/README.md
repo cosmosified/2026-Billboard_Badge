@@ -1,5 +1,12 @@
 # Billboard Badge Firmware
 
+# Host tools (uv)
+The host-side tools (`esptool`, `mpremote`) are managed with [uv](https://docs.astral.sh/uv/) via `pyproject.toml` in the repo root.
+Run `uv sync` once, then prefix commands with `uv run`, ex. from `firmware/`:
+
+- Push the badge files: `uv run python scripts/update.py push --reset`
+- Flash the pre-built bins: `cd bin && uv run python -m esptool erase-flash && uv run python -m esptool --chip esp32s3 -b 460800 --before default-reset --after hard-reset write-flash --flash-mode dio --flash-size 8MB --flash-freq 80m 0x0 bootloader.bin 0x8000 partition-table.bin 0x10000 micropython.bin`
+
 
 # Micropython
 Baseline micropython 1.27
