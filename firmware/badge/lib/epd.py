@@ -60,9 +60,11 @@ import lvgl
 
 from lib.large_png import show_png
 
-# Image data goes out over hardware SPI at the PDi reference driver's 8 MHz.
-# Set False to fall back to the bit-banged SoftSPI.
-USE_HW_SPI = True
+# Image data goes out over SPI at the PDi reference driver's 8 MHz.
+# Hardware SPI (True) doesn't drive the panel on at least some badges: the
+# refresh "finishes" in ~3 s with BUSY barely asserted and the screen unchanged.
+# The bit-banged SoftSPI (False) works, so it is the default.
+USE_HW_SPI = False
 SPI_BAUD = 8_000_000
 # Fast refresh: how many times to re-trigger the latched waveform per update.
 # Driver B runs a fixed ~1 s per trigger, so one pull can't clear the previous
