@@ -1,0 +1,13 @@
+[project]
+name = "billboard-badge"
+version = "0.1.0"
+description = "Host-side tools for flashing and updating the Supercon 2026 Billboard Badge"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "esptool",
+    "mpremote",
+]
+
+[tool.uv]
+package = false
