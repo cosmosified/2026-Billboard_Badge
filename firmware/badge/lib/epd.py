@@ -257,7 +257,10 @@ class EPaperDisplay:
         self._display_updated.set()
         gc.collect()
 
-        # Set up lvgl
+        # Set up lvgl (deinit first if soft-rebooted so C pointers don't corrupt)
+        if hasattr(lvgl, "is_initialized") and lvgl.is_initialized():
+            if hasattr(lvgl, "deinit"):
+                lvgl.deinit()
         lvgl.init()
         # Give LVGL a buffer 2-bytes-per-pixel for RGB565 format
         self._lv_draw_buf = bytearray(display_width * display_height * 2)
