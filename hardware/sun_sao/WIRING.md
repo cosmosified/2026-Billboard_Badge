@@ -39,7 +39,7 @@ Measured from the photos; beep it with a meter before soldering (step 1 below).
 | Part | Legs (hole) | Notes |
 |---|---|---|
 | Adafruit Qwiic / STEMMA QT Breakout (#5961) | SDA H2, SCL I2, GND J2, VIN K2 | QT socket toward the top edge. A STEMMA QT cable runs to the LTR390 (#4831), which can sit anywhere the sun reaches. |
-| Seeed Grove Loudness v0.9b | GND B10, VCC C10, NC D10, SIG E10 | Solder a 4-pin 2.54 mm header into the row of holes labeled SIG/NC/VCC/GND (next to the Grove connector, which stays unused). NC unused. |
+| Seeed Grove Loudness v0.9b | GND B10, VCC C10, NC D10, SIG E10 | Desolder its Grove connector. Those holes are 2.0 mm pitch, so a 2.54 mm header won't drop in: solder short wires (or a header with splayed legs) from its SIG/NC/VCC/GND holes to B10-E10. NC unused. |
 | DFRobot SEN0570 smoke | GND L10, A M10, VCC N10 | Faces out for airflow. |
 
 - The pin orders above are assumed. Put each part's legs in the listed columns, then **read the
@@ -49,6 +49,51 @@ Measured from the photos; beep it with a meter before soldering (step 1 below).
 - The #5961 has its own 10k SDA/SCL pull-ups and a green power LED. With the LTR390's 10k and the
   badge's R1/R3, the bus has several pull-ups in parallel; that is fine at 400 kHz. Cut the LED
   trace on its back if you want to save ~1 mA.
+
+## Schematic
+
+Same nets as the tables above. Wire numbers (W1-W10) match the back photo.
+
+```mermaid
+flowchart LR
+    subgraph SAO["SAO header (badge SAO2 / SAO3)"]
+        VCC["1 VCC 3.3V"]
+        GND["2 GND"]
+        SDA["3 SDA GPIO17"]
+        SCL["4 SCL GPIO18"]
+        G1["5 GPIO1 (GPIO4 / GPIO7)"]
+        G2["6 GPIO2 (GPIO5 / GPIO6)"]
+    end
+    subgraph QT["QT breakout #5961"]
+        QV["VIN K2"]
+        QG["GND J2"]
+        QD["SDA H2"]
+        QC["SCL I2"]
+    end
+    subgraph LOUD["Grove loudness"]
+        LV["VCC C10"]
+        LG["GND B10"]
+        LS["SIG E10"]
+    end
+    subgraph SMOKE["SEN0570 smoke"]
+        SV["VCC N10"]
+        SG["GND L10"]
+        SA["A M10"]
+    end
+    UV["LTR390 UV #4831<br/>addr 0x53"]
+
+    VCC -- "W1" --- QV
+    VCC -- "W6" --- LV
+    VCC -- "W8" --- SV
+    GND -- "W2" --- QG
+    GND -- "W5" --- LG
+    GND -- "W10" --- SG
+    SDA -- "W4" --- QD
+    SCL -- "W3" --- QC
+    G1 -- "W7" --- LS
+    G2 -- "W9" --- SA
+    QT == "STEMMA QT cable" === UV
+```
 
 ## Jumper wires (all on the back)
 
