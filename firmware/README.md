@@ -5,6 +5,7 @@ The host-side tools (`esptool`, `mpremote`) are managed with [uv](https://docs.a
 Run `uv sync` once, then prefix commands with `uv run`, ex. from `firmware/`:
 
 - Push the badge files: `uv run python scripts/update.py push --reset`
+- Test a refresh after a hard reset: `sh scripts/boot_test.sh [seconds]`, or after a soft reboot (Ctrl-C, Ctrl-D, as Thonny does): `sh scripts/soft_reboot_test.sh [seconds]`. Both reset the boot counter so the splash screen shows, and print the serial log with timestamps. A real full refresh takes ~33 s after "display working"; one that finishes in a second or two means the panel never redrew.
 - Flash the pre-built bins: `cd bin && uv run python -m esptool erase-flash && uv run python -m esptool --chip esp32s3 -b 460800 --before default-reset --after hard-reset write-flash --flash-mode dio --flash-size 8MB --flash-freq 80m 0x0 bootloader.bin 0x8000 partition-table.bin 0x10000 micropython.bin`
 
 
