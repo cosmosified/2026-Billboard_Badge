@@ -110,9 +110,12 @@ class AppSwitcher:
         Any problem falls back to the menu."""
         if MenuPlus.pin.value() or MenuMinus.pin.value():
             print("Menu button held at boot, showing menu")
-            # Don't let the held button also move the menu selection
-            MenuMinus._pressed_state = PRESSED_READ
-            MenuPlus._pressed_state = PRESSED_READ
+            # Don't let the held button also move the menu selection: mark it
+            # held and already read, so scan() doesn't count it as a new press
+            for b in (MenuMinus, MenuPlus):
+                if b.pin.value():
+                    b._held = True
+                    b._pressed_state = PRESSED_READ
             return
         try:
             try:
