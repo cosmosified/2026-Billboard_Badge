@@ -1,7 +1,7 @@
 ---
 inclusion: auto
 name: badge-hardware
-description: Billboard badge hardware reference. Use for GPIO pinout, power/battery/charger, e-paper connector wiring, SAO ports, LEDs, buttons, BOM, PCB, and schematic vs firmware discrepancies.
+description: Billboard badge hardware reference. Use for GPIO pinout, power/battery/charger, e-paper connector wiring, panel power switch (GPIO48), SAO ports, LEDs, buttons, battery sense, BLE radio, BOM, PCB, and schematic vs firmware discrepancies.
 ---
 
 # Billboard badge hardware
@@ -58,7 +58,7 @@ map), `billboard_pcb_BOM.csv`, `production/netlist.ipc`. Live probe of a badge o
 | 45 | unconnected | strap pin; epd.py uses it as a dummy SoftSPI MISO | |
 | 46 | unconnected | strap pin | |
 | 47 | EPD_SDA | SPI MOSI (3-wire, write-only), both CoGs | |
-| 48 | EPD_PWR_ENABLE | Q2 P-FET gate, active low, no pull-up | `epd.EPD_PWR_EN_PIN` defined but never driven |
+| 48 | EPD_PWR_ENABLE | Q2 P-FET gate, active low, no pull-up | `epd.EPD_PWR_EN_PIN`, driven low (panel on) at import |
 
 Truly free pins for hacking: GPIO9 (TP8), GPIO41 (TP9), UART pads 43/44, plus the 6 SAO GPIOs when no
 SAO is fitted.
@@ -74,10 +74,13 @@ SAO is fitted.
 - Voltage sense: GPIO14 reads half of the LDO input (VBUS minus a Schottky drop on USB, or battery).
   Measured 4.83 V on USB power.
   `volts = board.reg_in_v_sns.read_uv() * 2 / 1e6`. GPIO14 is ADC2, which conflicts with active Wi-Fi.
-  Back silkscreen says to remove the divider resistor for standby; it draws ~185 uA at 3.7 V (the
-  silkscreen's "18 uA" figure is off by 10x).
-- E-paper power: Q2 SK2301 P-FET from 3V3 to VCC_EPD, gate on GPIO48, active low. Firmware never
-  drives it, so the panel rail state depends on the floating gate. A candidate for power saving.
+  On USB it reads the USB voltage, not the battery, so the battery can't be measured while plugged in.
+  Back silkscreen says to remove the divider resistor for standby; by calculation (3.7 V / 20 kohm)
+  it draws ~185 uA, not the silkscreen's "18 uA" (not measured).
+- E-paper power: Q2 SK2301 P-FET from 3V3 to VCC_EPD, gate on GPIO48, active low, no gate pull-up.
+  Firmware drives GPIO48 low at import (rail on) and leaves it on. Switching it off between refreshes
+  is an untested power-saving idea; the app note says the panel needs at least 1.5 s off before
+  power-up.
 - LEDs run from 3V3, not 5 V, with no per-LED decoupling.
 
 ## E-paper interface
@@ -104,8 +107,9 @@ SAO is fitted.
 - Layout (viewed from the back silkscreen): left column SW5 (IO40, top) and SW4 (IO39 "User A");
   right column SW6 (IO15, top) and SW7 (IO16 "User B").
 - Silkscreen says SW5 = "Menu +", SW6 = "Menu -"; firmware calls IO40 `MenuMinus` and IO15 `MenuPlus`.
-  The firmware comment says the silkscreen is swapped. From the front of the badge the left/right
-  sides are mirrored, which probably explains it.
+  Tested: the right button (GPIO15) moves the menu selection right (next), the left one (GPIO40)
+  moves it left (previous), so the firmware names match the behavior and the silkscreen is wrong.
+  One possibility for the swap: the silkscreen is read from the back, where left and right mirror.
 
 ## SAO ports (J8 SAO1, J9 SAO2, J10 SAO3)
 - Standard 2x3 SAO v1.69bis: 1 VCC (3V3), 2 GND, 3 SDA, 4 SCL, 5 GPIO1, 6 GPIO2.
@@ -118,10 +122,11 @@ SAO is fitted.
 - BOM lists TP6/TP7 (GPIO17/18) that don't exist on the PCB (stale BOM).
 
 ## Schematic vs firmware/docs discrepancies
-1. Root README says "User A/B: GPIO39 / GPIO15"; User B is really GPIO16.
+1. Fixed (fork PR #4): the root README said User B was GPIO15; it is GPIO16.
 2. Menu +/- naming is swapped between silkscreen and firmware (see Buttons).
 3. Battery sense uses an ADC2 pin despite the schematic note preferring ADC1.
-4. Q2 gate (GPIO48) has no pull-up and is never driven by firmware.
+4. Q2 gate (GPIO48) has no pull-up; until firmware drives it low at import, the panel rail state
+   is undefined.
 
 ## BOM highlights (LCSC)
 U1 ESP32-S3-WROOM-1 (N8R8) C2913202; U2 MCP73831-2-OT C424093; U3 AP2112K-3.3 C51118; LEDs
