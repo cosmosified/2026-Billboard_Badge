@@ -18,7 +18,9 @@ async def refresh(label, **kw):
 
 def frame(text, x):
     display.black.fill(0)  # leave the red plane alone
-    pixtext.center(display.black, text, 80, 10)
+    # Largest scale (up to 10) at which the text fits the 960 px panel width
+    scale = min(10, display.width // pixtext.width(text, 1))
+    pixtext.center(display.black, text, 80, scale)
     display.black.fill_rect(x, 450, 120, 120, 1)
 
 

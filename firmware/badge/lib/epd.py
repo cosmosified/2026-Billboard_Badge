@@ -101,6 +101,20 @@ def _split_plane(src: ptr8, left: ptr8, right: ptr8, lut: ptr8):
 # can't clear the previous image; on driver 8 one pull runs the whole table.
 FAST_PULLS_B = 3
 FAST_PULLS_8 = 1
+# Fast refresh only: pixels that were black in the previous frame and stay
+# black get both plane bits set, which selects waveform table 3 (ground in
+# every phase), so they aren't driven again. Re-driving black pixels pulls up
+# the red pigment, so black that stays put turns red over a few fast frames.
+FAST_HOLD_BLACK = True
+
+
+@micropython.viper
+def _hold_black(black: ptr8, prev: ptr8, red: ptr8, out: ptr8, n: int):
+    """out = red | (black & prev): mark pixels black in both frames."""
+    i = 0
+    while i < n:
+        out[i] = red[i] | (black[i] & prev[i])
+        i += 1
 
 
 def _keep_red_lut(lut, group_size, groups):
@@ -178,6 +192,8 @@ class EPaperDisplay:
         self._driver_b = self._reverse_fb_bits
         self._fast_luts = None  # loaded from data/rendered_luts.py on first fast update
         self._request = (False, False, None)  # fast, keep_red, passes
+        # Black plane of the last refresh, for FAST_HOLD_BLACK (None = unknown)
+        self._prev_black = None
 
         # The framebuffers are set and display should be updated.
         self._framebuffer_ready = aio.Event()
@@ -287,6 +303,7 @@ class EPaperDisplay:
         black_right = bytearray(half_frame_one_color_size)
         red_left = bytearray(half_frame_one_color_size)
         red_right = bytearray(half_frame_one_color_size)
+        hold_red = None  # allocated on the first fast refresh that uses it
         while True:
             if self._framebuffer_ready.is_set():
                 self._display_updated.clear()
@@ -297,8 +314,19 @@ class EPaperDisplay:
                 fast, keep_red, passes = self._request
                 tick = time.ticks_ms()
                 lut = _REVERSE_LUT if self._reverse_fb_bits else _IDENTITY_LUT
+                red = self._framebuffer_red
+                if fast and FAST_HOLD_BLACK and self._prev_black is not None:
+                    if hold_red is None:
+                        hold_red = bytearray(len(red))
+                    _hold_black(self._framebuffer_black, self._prev_black, red,
+                                hold_red, len(red))
+                    red = hold_red
                 _split_plane(self._framebuffer_black, black_left, black_right, lut)
-                _split_plane(self._framebuffer_red, red_left, red_right, lut)
+                _split_plane(red, red_left, red_right, lut)
+                if self._prev_black is None:
+                    self._prev_black = bytearray(self._framebuffer_black)
+                else:
+                    self._prev_black[:] = self._framebuffer_black
                 print("Split planes in", time.ticks_diff(time.ticks_ms(), tick), "ms")
                 await self.global_update(black_left, red_left, black_right, red_right,
                                          fast, keep_red, passes)
