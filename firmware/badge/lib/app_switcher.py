@@ -45,16 +45,19 @@ class AppSwitcher:
             app_mods.append(app_modname)
         if app_mods:
             print(f"Found app mods: {app_mods}")
-            with open("/data/user_apps.py", "w") as out:
-                out.write(f"from apps import {', '.join(app_mods)}\n")
 
-        import data.user_apps as apps  # pyright: ignore[reportMissingImports]
-        apps_list = [app for app in dir(apps) if "__" not in app]
-        print(f"App module list: {apps_list}")
-        for appmod_name in apps_list:
-            if appmod_name.startswith("_") or appmod_name in APPMOD_DENYLIST:
+        # Import each app module on its own, so one broken app file (syntax
+        # error, bad import) is skipped instead of stopping the whole badge.
+        for appmod_name in app_mods:
+            if appmod_name in APPMOD_DENYLIST:
                 continue
-            appmod = getattr(apps, appmod_name)
+            try:
+                __import__("apps." + appmod_name)
+                appmod = sys.modules["apps." + appmod_name]
+            except Exception as exc:
+                print(f"Failed to import app module: apps.{appmod_name}")
+                sys.print_exception(exc)
+                continue
             try:
                 for modattr in appmod.__dict__.values():
                     # Subclasses of an app class count too. _abstract skips the
