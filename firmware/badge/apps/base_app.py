@@ -10,6 +10,11 @@ class BaseApp:
     Exists to make it easier to make app-generic behaviors.
     """
 
+    menu_action = False
+    """If True, this entry is a menu action, not an app: picking it with User
+    A/B calls action() and the badge stays in the menu (the screen isn't
+    touched). Menu actions are listed after all the apps."""
+
     def __init__(self, name: str | None = None) -> None:
         self.name = name or self.__class__.__name__
         self.sleep_ms = 100
@@ -35,4 +40,9 @@ class BaseApp:
 
     def run(self):
         """Override this with your app behavior. Will be run in a while True loop."""
+        pass
+
+    def action(self):
+        """For menu_action entries: do the action. Show feedback on the LEDs;
+        the menu waits ACTION_FEEDBACK_MS before it redraws them."""
         pass
