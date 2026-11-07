@@ -27,6 +27,16 @@ The row of WS2812-compatible LEDs is on GPIO38
 # Applications
 In its out of the box configuration the badge can show the 2026 Supercon schedule, act as a digital name tag, and cycle through a built-in collection of art from Hackaday's incredible Art Director Joe Kim. If you come up with additional apps that you'd like to share, feel free to make a pull request.
 
+## Owner profile (`/data/owner.json`)
+
+To put your handle on the name tag, create `/data/owner.json` on the badge, for example with `mpremote cp owner.json :/data/owner.json`:
+
+```json
+{"maker_handle": "740Dave", "makes": "robots and blinky things"}
+```
+
+`maker_handle` is a handle or nickname, not your real name: the badge is worn in public, so only put something there you are happy for strangers to see. The Nametag app writes it on the "HELLO I AM" sticker; without the file the sticker stays blank. Add `"nametag_line2": "@yourdiscord"` to show a second line under the handle (both lines use the same font size). Other apps can read it with `from lib.owner import owner` (`owner.maker_handle`, `owner.makes`, `owner.get(key, default)`, `owner.reload()`). The file is optional and is not part of the repo, so updating the firmware won't overwrite it. Apps that write to it should keep any keys they don't know about.
+
 Press Menu +/- to open the app menu, Menu +/- to pick an app, and User A or B to launch it. The badge remembers the last app launched from the menu (in `/data/last_app.json`) and starts it again at the next boot. Hold Menu + or Menu - while the badge boots to get the menu instead. To always boot into the menu, create `/data/boot.json` containing `{"resume": false}`.
 
 Community apps:
