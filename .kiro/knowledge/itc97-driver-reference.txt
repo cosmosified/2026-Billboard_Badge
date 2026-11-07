@@ -1,0 +1,694 @@
+ APPLICATION NOTE · ESP32S3-ITC97
+ Pervasive iTC 9.7″ Dual-COG Driver
+ Register sequences, OTP layout and short-waveform tables
+ PANEL VARIANTS COVERED FRAME BUFFER SOURCE
+ 960 × 672, black / white E2969JS084 — chapter 2 2 planes × 80 640 B epd97.cpp, epd97_lut.h
+ / red E2969JS0B1 — chapter 3 1 bpp, MSB first epd97_config.h
+ two COGs, one FPC
+ CONTENTS
+ 1 Panel 3 Driver B — E2969JS0B1
+ 1.1 Geometry and bus 3.1 OTP probe
+ 1.2 Pixel encoding 3.2 Initialisation sequence
+ 1.3 Register index summary 3.3 Window registers, byte by byte
+ 2 Driver 8 — E2969JS084 3.4 Refresh timing
+ 2.1 OTP probe 3.5 Waveform table at 0xB0
+ 2.2 Initialisation sequence 3.6 Shutdown
+ 2.3 Window registers, byte by byte 4 OTP block
+ 2.4 Refresh timing 5 Refresh control
+ 2.5 Waveform table at 0xB0 6 Timing constants
+ 2.6 Shutdown 7 Errata
+ 1 Panel
+ Common to both variants. Chapters 2 and 3 are self-contained and do not refer to one
+ another.
+ 1.1 Geometry and bus
+ 960 × 672 pixels. Two COGs behind one FPC, each owning half of every scan line. A line is
+ 120 bytes: 60 to the master with CS1 low, chip select swapped, 60 to the slave with CS2 low.
+ Register writes hold both chip selects low and so reach both COGs at once.
+ Two buses share MOSI and SCK. Register writes and the OTP readback are bitbanged — a
+ few dozen bytes, and the OTP needs a ~50 kHz clock with the data pin turned around for
+ the read. The two 80 640-byte planes go out over hardware SPI at 4 MHz. The GPIO matrix is
+ re-pointed between the two; chip select stays plain GPIO, because it is swapped every 60
+ bytes.
+ FIG. 1-1   BUS AND SCAN-LINE SPLIT
+ 960 x 672, 672 lines
+ COG 1 master CS1
+ ESP32-S3 DC SDA SCL x = 0 .. 479 x = 480 .. 959
+ 2 x 80 640 B 480 px 480 px
+ in PSRAM CS1 CS2 RST BUSY
+ COG 2 slave CS2
+ ONE LINE byte 0 .. 59 byte 60 .. 119 x 672 lines, x 2 planes
+ 120 bytes
+ CS1 low, CS2 high CS1 high, CS2 low
+ Register writes hold both chip selects low, so one write reaches both COGs. That is also how a single 0xB0 write loads
+ the same waveform table into both halves of the panel.
+ 1.2 Pixel encoding
+ A pixel is a pair of bits, one in each plane, and the pair selects a waveform table as
+ (red << 1) | bw. Red is therefore not black with red on top: a red pixel has the red bit
+ set and the bw bit clear.
+ TABLE 1-1   PLANE BITS TO TABLE INDEX
+ RED BW TABLE ROLE RESULT ON THE FILM
+ 0 0 0 paper white
+ 0 1 1 ink black
+ 1 0 2 red red
+ 1 1 3 unreachable no waveform in this driver drives table 3
+ — — 4 VCOM common plane; no pixel selects it
+ 1.3 Register index summary
+ Every index this driver writes. The full sequences, with per-byte meaning, are in chapters 2
+ and 3.
+ TABLE 1-2   ALL REGISTER INDICES
+ INDEX FUNCTION 084 B1 PAYLOAD
+ 0x01 DCTL yes yes OTP[0x10]
+ 0x02 last step of the init sequence yes yes OTP[0x11]
+ 0x03 oscillator yes no 00, OTP[0x12]
+ 0x05 panel setting / power sequencing yes yes 7D, then 00
+ 0x09 booster enable / level yes yes from OTP ramp
+ 0x10 black/white plane yes yes 80 640 B
+ 0x11 red plane yes yes 80 640 B
+ 0x12 RAM_RW pointer yes yes OTP[0x13..15]
+ 0x13 DUW, display update window yes yes OTP[0x16..1B]
+ 0x15 start the update yes yes 3C
+ 0x44 waveform source pointer yes yes 00, then 06
+ 0x45 waveform bank select yes yes 80, then 86 / 84
+ 0x51 DC/DC phase voltages yes yes ph0, ph1
+ 0x60 TCON yes yes OTP[0x0B]
+ 0x61 STV yes yes OTP[0x1C]
+ 0x70 booster configuration, both COGs no yes 71, 36
+ 0x90 DRFW, data refresh window yes yes OTP[0x0C..0F]
+ 0xA1 OTP unlock, step 1 yes no 00
+ 0xA3 OTP start address yes no 00, 40
+ 0xA7 OTP / waveform load strobe yes yes 80, or 10 / 00
+ 0xA8 OTP read opener yes no bare index
+ 0xB0 short waveform table yes yes 180 B / 400 B
+ 0xB9 OTP read opener no yes bare index
+ 0xC2 unnamed panel setting yes no 3F
+ 0xD6 unnamed panel setting yes yes OTP[0x1E]
+ 0xD8 unnamed panel setting yes yes OTP[0x1D]
+ NOTE Indices whose function is not evidenced by the driver source are listed as
+ unnamed rather than given a name they may not have. Their arguments are
+ nevertheless fixed and are reproduced exactly.
+ 2 Driver 8 — E2969JS084
+ Complete sequence for this variant. Identified by an OTP header of 0xA5. Waveform
+ bank 0x86, 180-byte short-waveform table, refresh duration follows the table.
+ 2.1 OTP probe
+ Run once per power cycle, before anything else. The result is cached and also kept in RTC
+ memory, so a deep-sleep wake skips it. Clocked at ~50 kHz throughout.
+ TABLE 2-1   084 OTP READ
+ # INDEX BYTES MEANING
+ 1 — — VCC_EN on, 800 ms, then RST high 50 / low 100 / high 400 ms
+ 2 0xA1 00 unlock, step 1
+ 3 0xA7 80 OTP strobe
+ 4 0xA3 00, 40 start address of the read
+ 5 0xA8 — read opener, index only, no data phase. CS1 stays low afterwards
+ 6 — 1 + 88 B SDA turned to input; one dummy byte, then the 88-byte block, MSB first
+ 7 — — OTP[0x00] must read 0xA5, else the probe failed
+ 2.2 Initialisation sequence
+ Execution order for one image. Steps 5–10 carry the frame, steps 11–29 are the register
+ sequence, and step 30 is the only point at which the short waveform can be written.
+ TABLE 2-2   084 INITIALISATION, COMPLETE
+ # INDEX BYTES MEANING OF EACH BYTE DELAY AFTER
+ POWER AND RESET
+ 1 — — VCC_EN asserted. The 1500 ms minimum supply-off time is waited out first 800 ms
+ 2 — — RST high 50 ms
+ 3 — — RST low 100 ms
+ 4 — — RST high 400 ms
+ FRAME DATA
+ 5 0x13 OTP[16..1B] DUW — display update window. 6 bytes, see Table 2-3 —
+ 6 0x90 OTP[0C..0F] DRFW — data refresh window. 4 bytes, see Table 2-3 —
+ 7 0x12 OTP[13..15] RAM_RW pointer. 3 bytes, forwarded verbatim —
+ 8 0x10 80 640 B black/white plane. 672 lines × (60 B with CS1 low, 60 B with CS2 low) —
+ 9 0x12 OTP[13..15] RAM_RW pointer again — it is re-sent before each plane, not once —
+ 10 0x11 80 640 B red plane. Always sent; a frame with no red sends zeros 660 ms
+ REGISTER SEQUENCE — 1210 MS IN TOTAL
+ 11 0x05 7D opens the sequence 200 ms
+ 12 0x05 00 — 10 ms
+ 13 0xC2 3F unnamed panel setting, literal —
+ 14 0xD8 OTP[1D] unnamed panel setting, from the fuse block —
+ 15 0xD6 OTP[1E] unnamed panel setting, from the fuse block —
+ 16 0xA7 10 load strobe 1, high 100 ms
+ 17 0xA7 00 load strobe 1, low 100 ms
+ 18 0x03 00, OTP[12] oscillator. Injected here, immediately after strobe 1 falls —
+ 19 0x44 00 waveform source pointer —
+ 20 0x45 80 bank, the driver's own default —
+ 21 0xA7 10 load strobe 2, high 100 ms
+ 22 0xA7 00 load strobe 2, low 100 ms
+ 23 0x44 06 waveform source pointer —
+ 24 0x45 86 bank. 0x86 is the 9.7″; 0x8C is the 12″ —
+ 25 0xA7 10 load strobe 3, high 100 ms
+ 26 0xA7 00 load strobe 3, low. This pair commits the OTP waveform 500 ms
+ 27 0x60 OTP[0B] TCON. Written before STV, which is what this panel size wants —
+ 28 0x61 OTP[1C] STV —
+ 29 0x01 OTP[10] DCTL —
+ 30 0x02 OTP[11] closes the sequence —
+ WAVEFORM, BOOSTER, TRIGGER
+ 31 0xB0 180 B short waveform table — fast refresh only. Section 2.5 —
+ 32 0x09 from OTP DC/DC soft start. Four stage records at OTP[0x20..0x3F], section 4.2 100 ms
+ 0x51
+ 33 — — wait for BUSY high. Ceiling 10 s, then it proceeds anyway —
+ 34 0x15 3C start the update. Sent once — the table sets the duration —
+ 35 — — BUSY low within 2 s, then high within 180 s —
+ 36 — — watch 1 s in case BUSY drops again for a second waveform pass —
+ FIG. 2-1   084 REGISTER SEQUENCE AGAINST REAL TIME
+ REGISTER t = 0 t = 1210 ms
+ 0x05 7D 00
+ strobe 1 strobe 2 strobe 3
+ 0xA7
+ 0x44 not set 00 06
+ 0x45 not set 80 86
+ writes
+ 05 05 C2 A7 44 A7 44 A7 60
+ D8 03 45 45 61
+ D6 A7 A7 01
+ A7 02
+ 200 100 100 100 100 100 500
+ delay / ms
+ 10
+ 0xB0
+ At t = 1210 the sequence ends. Then 0xB0 takes 180 B on a fast refresh, then the DC/DC soft start, 100 ms settle, 0x15 once.
+ Two-digit labels are register indices; each argument is in the sequence table above.
+ The axis is the real 1210 ms. The three load strobes appear as what they are — 100 ms high, 100 ms
+ low, three times over — with the source pointer and the bank set in the gaps between them. The 500
+ ms after the last strobe is the largest single gap in the sequence.
+ NOTE Steps 19–26 are what load the panel's own waveform into the registers that
+ step 31 replaces. Writing 0xB0 before step 26 gets overwritten; writing it after
+ step 32 is too late. Step 31 is the only window.
+ 2.3 Window registers, byte by byte
+ TABLE 2-3   MULTI-BYTE PAYLOADS
+ INDEX BYTE SOURCE MEANING
+ 0x13 [0] OTP[0x16] x start, in bytes
+ DUW [1] OTP[0x17] x end, in bytes. Reads 0x3B = 59, i.e. 60 bytes per COG. Validated
+ [2] OTP[0x18] y window. Forwarded verbatim; the driver does not interpret these
+ [3] OTP[0x19]
+ [4] OTP[0x1A]
+ [5] OTP[0x1B]
+ 0x90 [0] OTP[0x0C] forwarded verbatim
+ DRFW [1] OTP[0x0D] x end. Reads 0x3B. Validated
+ [2] OTP[0x0E] forwarded verbatim
+ [3] OTP[0x0F]
+ 0x12 [0] OTP[0x13] RAM read/write pointer. Forwarded verbatim, re-sent before each plane
+ RAM_RW [1] OTP[0x14]
+ [2] OTP[0x15]
+ 2.4 Refresh timing
+ FIG. 2-2   084 FAST REFRESH, SUPPLY-ON TO SHUTDOWN
+ EVENT 0xB0
+ 0x15
+ VCC_EN
+ RST
+ BUSY
+ SDA / SCL bitbang
+ SPI 4 MHz
+ settle settle init registers WAVEFORM RUNS watch stop
+ 950 ~350 1210 3296
+ 8758 ms total, cold session
+ All figures in ms. A kept-open session re-enters at the plane write and ends at the trigger: no supply cycle,
+ no reset, no register sequence, no soft start.
+ One trigger, and BUSY stays low for the whole 3296 ms the table asks for. A slow refresh is the same
+ diagram with step 31 omitted and the low period at about 51 s.
+ 2.5 Waveform table at 0xB0
+ 180 bytes: five tables of nine groups of four bytes. Table index comes from the pixel bit pair
+ (Table 1-1); table 4 is VCOM.
+ FIG. 2-3   180-BYTE PAYLOAD GEOMETRY
+ 0xB0 payload, 180 bytes
+ table 0 paper table 1 ink table 2 red table 3 unused table 4 VCOM
+ each table = 9 groups
+ g0 g1 g2 g3 g4 g5 g6 g7 g8
+ each group = 4 bytes
+ level frames 0|1 frames 2|3 repeat
+ +0 +1 +2 +3
+ Byte offset of table t, group g, byte n = (t * 9 + g) * 4 + n
+ 2.5.1 Level byte
+ Two bits per phase, phase 0 in the top bits. The same encoding is used by both variants.
+ TABLE 2-4   LEVEL BYTE FIELDS AND RAIL CODES
+ BITS FIELD CODE RAIL EFFECT
+ 7:6 phase 0 0 GND no field. Not neutral over long stages: black relaxes to grey, white drifts
+ 5:4 phase 1 1 VDH full positive. Brings black up, and red with it
+ 3:2 phase 2 2 VDL negative. Drives towards paper
+ 1:0 phase 3 3 VDHR reduced positive. Above red's threshold, below black's
+ Hatch key: GND VDH VDL VDHR
+ 2.5.2 Group record
+ FIG. 2-4   ONE GROUP RECORD DECODED
+ +0 level +1 frames 0|1 +2 frames 2|3 +3 repeat
+ BYTES 0x44 0x31 0x31 0x09
+ phase 0 phase 1 phase 2 phase 3
+ MEANING VDH, 3 f GND, 1 f VDH, 3 f GND, 1 f x 9
+ one repeat, 8 f, 256 ms
+ VDH
+ ON THE FILM GND . . .x 9 = 72 frames = 2304 ms
+ VDL
+ Three frames pushing at the rail, one resting at ground. The rest is the point: a long run at VDH drags the
+ slower red pigment along behind the black, and the rests let it relax back.
+ Four bytes become four phases and a repeat count. Frame counts are nibble-packed, high nibble
+ first, so a single phase is capped at 15 frames.
+ 2.5.3 Base table, complete listing
+ The table as written when the frame carries no red and the previous frame carried none.
+ Tables 1, 2 and 3 are identical here; group 2 through group 8 are identical to each other.
+ TABLE 2-5   084 BASE TABLE, ALL 180 BYTES
+ TABLE GROUP BYTES PHASE LEVELS FRAMES REP DURATION ROLE
+ 0 paper 0 66 33 33 02 VDH VDL VDH VDL 3 3 3 3 2 24 f / 768 ms balanced shake
+ 0 paper 1 88 31 31 09 VDL GND VDL GND 3 1 3 1 9 72 f / 2304 ms chopped drive to paper
+ 0 paper 2–8 00 10 00 01 GND × 4 1 0 0 0 1 1 f / 32 ms placeholder
+ 1, 2, 3 0 99 33 33 02 VDL VDH VDL VDH 3 3 3 3 2 24 f / 768 ms shake, opposite phase to paper
+ 1, 2, 3 1 44 31 31 09 VDH GND VDH GND 3 1 3 1 9 72 f / 2304 ms chopped drive to ink
+ 1, 2, 3 2–8 00 10 00 01 GND × 4 1 0 0 0 1 1 f / 32 ms placeholder
+ 4 VCOM 0 00 33 33 02 GND × 4 3 3 3 3 2 24 f / 768 ms held at ground, but carries the same frame
+ counts
+ 4 VCOM 1 00 31 31 09 GND × 4 3 1 3 1 9 72 f / 2304 ms
+ 4 VCOM 2–8 00 10 00 01 GND × 4 1 0 0 0 1 1 f / 32 ms
+ Total 103 frames, 3296 ms, against about 51 s for the panel's own waveform.
+ NOTE The seven placeholder groups are not padding that could be dropped. A
+ group left at zero is not an empty group — it runs about four seconds.
+ Every table in a group carries the group's frame counts, VCOM included,
+ because a group ends when the shortest table in it ends.
+ 2.5.4 Frame-accurate trace
+ FIG. 2-5   ALL 103 FRAMES, PAPER AND INK
+ table 0 PAPER
+ VDH
+ GND
+ VDL
+ table 1 INK
+ VDH
+ GND
+ VDL
+ TIME group 0 - 24 frames - 768 ms group 1 - 72 frames - 2304 ms
+ g2-8
+ 7 f
+ frame 0 10 20 30 40 50 60 70 80 90 100
+ One step = one frame = 32.0 ms. 103 frames = 3296 ms. Table 4 (VCOM) stays at GND for all 103 frames but carries the
+ same frame counts, because a group ends when the shortest table in it ends.
+ The two tables are mirror images through the shake, then separate: paper to VDL with a rest at
+ ground, ink to VDH with the same rest. The shake is balanced — as much VDH as VDL — so it adds no
+ net charge whatever a pixel holds. Without that the paper goes pink within a handful of updates.
+ 2.5.5 Red variants
+ Red on this film is not a third direction. Both coloured pigments carry the same charge and
+ both rise on a positive field; they differ only in threshold, red's being lower. On VDH black
+ comes up with the red and has to be pulled back out, and the pull that removes black
+ removes red with it — the two differ in speed by about 2.5, not the ten to one the literature
+ suggests. So red is driven on VDHR, where black never comes up at all.
+ Groups 0 and 1 are never rewritten: putting the red stages over group 1 would replace nine
+ repeats with one, which means grey blacks and red landing on an undriven pixel. The
+ rewrite starts at group 2.
+ TABLE 2-6   WHAT THE REWRITE PUTS IN GROUPS 2 TO 8
+ VARIANT TABLE GROUP BYTES LEVELS PURPOSE
+ B 0 paper 2–8 88 66 66 01 VDL GND VDL GND held at its own target, not parked at ground
+ red drawn 1, 3 ink 2–8 44 66 66 01 VDH GND VDH GND held at its own target
+ 2 red 2 88 66 66 01 VDL GND VDL GND erase to white first
+ 2 red 3–8 FF 66 66 01 VDHR × 4 hold the reduced positive rail
+ C 2 red 2–8 88 66 66 01 VDL GND VDL GND all seven groups erase — there is red to remove and none to make
+ clearing
+ B and C 4 VCOM 2–8 00 66 66 01 GND × 4 ground, with the group's timing
+ Frame count 0x66 is six frames per phase, 192 ms. A rewritten group is therefore 24 frames,
+ and the table grows from 103 to 264 frames — 8.45 s.
+ FIG. 2-6   THE RED TABLE PLAYED OUT IN TIME, THREE VARIANTS
+ TABLE 2 (RED), PLAYED OUT IN TIME - ALL THREE AT ONE SCALE
+ A no red in this frame or the last g0 g1 1
+ VDL VDH
+ B red drawn in this frame g0 g1 g2 g3 g4 g5 g6 g7 g8 2
+ VDL VDH VDL VDHR VDHR VDHR VDHR VDHR VDHR
+ C red on the panel, none drawn now g0 g1 g2 g3 g4 g5 g6 g7 g8 2
+ VDL VDH VDL VDL VDL VDL VDL VDL VDL
+ 0 1 2 3 4 5 6 7 8 s
+ In A the last seven groups are one frame each - placeholders, because a group left at zero is not an empty group, it
+ runs about four seconds. In B and C the same seven groups carry 24 frames each, which is where the 5.15 s goes.
+ FIG. 2-7   ALL TABLES BY GROUP, THREE VARIANTS
+ g0 g1 g2 g3 g4 g5 g6 g7 g8
+ A base - 103 frames, 3.30 s
+ 0 paper 66 88 00 00 00 00 00 00 00
+ 1 ink / 3 99 44 00 00 00 00 00 00 00
+ 2 red 99 44 00 00 00 00 00 00 00
+ 4 VCOM 00 00 00 00 00 00 00 00 00
+ frames x rep 12x2 8x9 1x1 1x1 1x1 1x1 1x1 1x1 1x1
+ B red drawn - 264 frames, 8.45 s
+ 0 paper 66 88 88 88 88 88 88 88 88
+ 1 ink / 3 99 44 44 44 44 44 44 44 44
+ 2 red 99 44 88 FF FF FF FF FF FF
+ 4 VCOM 00 00 00 00 00 00 00 00 00
+ frames x rep 12x2 8x9 24x1 24x1 24x1 24x1 24x1 24x1 24x1
+ C clearing - 264 frames, 8.45 s
+ 0 paper 66 88 88 88 88 88 88 88 88
+ 1 ink / 3 99 44 44 44 44 44 44 44 44
+ 2 red 99 44 88 88 88 88 88 88 88
+ 4 VCOM 00 00 00 00 00 00 00 00 00
+ frames x rep 12x2 8x9 24x1 24x1 24x1 24x1 24x1 24x1 24x1
+ Cell = one group. Width inside a cell is split between the four phases in proportion to their frame counts; the
+ hatch is the rail. Hex is the level byte. Groups 0 and 1 are never rewritten.
+ NOTE Published three-pigment waveforms carry an activation and a separation
+ swing, and both rock on VDH — the rail that brings black up. On a red pixel
+ that is exactly what must not happen, so neither appears here: the red table
+ sees the negative rail and then the reduced positive one, and nothing else.
+ 2.6 Shutdown
+ TABLE 2-7   084 SHUTDOWN
+ # INDEX BYTES MEANING DELAY AFTER
+ 1 0x09 7F booster off 20 ms
+ 2 0x05 7D panel setting —
+ 3 0x09 00 booster register cleared 200 ms
+ 4 — — DC low, both chip selects low 150 ms
+ 5 — — RST low, then VCC_EN released 300 ms
+ 6 — — chip selects high, RST high. Rails bleed down from here —
+ 3 Driver B — E2969JS0B1
+ Complete sequence for this variant. Identified from the OTP field positions, not from a
+ header byte. Waveform bank 0x84, 400-byte short-waveform table, refresh duration
+ fixed at about 1070 ms regardless of the table.
+ 3.1 OTP probe
+ TABLE 3-1   B1 OTP READ
+ # INDEX BYTES MEANING
+ 1 — — VCC_EN on, 800 ms, then RST high 50 / low 100 / high 400 ms
+ 2 0x70 71, 36 booster configuration. Sent to both COGs. A panel that never receives it draws about 2 A during refresh
+ 3 0xB9 — read opener, index only, master COG only — both COGs would otherwise drive the shared data line
+ 4 — 1 + 88 B SDA turned to input; one dummy byte, then the 88-byte block
+ 5 — — identified if OTP[0x16] = 0x3B, OTP[0x0D] = 0x3B and OTP[0x28] bit 7 set
+ 6 — — block remapped into the canonical layout — section 4.3
+ 3.2 Initialisation sequence
+ Execution order for one image. Two differences in position are worth marking before the
+ table: DCTL is sent before the window registers rather than at the end of the register
+ sequence, and there is no oscillator write at all.
+ TABLE 3-2   B1 INITIALISATION, COMPLETE
+ # INDEX BYTES MEANING OF EACH BYTE DELAY AFTER
+ POWER AND RESET
+ 1 — — VCC_EN asserted. The 1500 ms minimum supply-off time is waited out first 800 ms
+ 2 — — RST high 50 ms
+ 3 — — RST low 100 ms
+ 4 — — RST high 400 ms
+ FRAME DATA
+ 5 0x01 OTP[10] DCTL. Sent here on this variant, ahead of the window registers —
+ 6 0x13 OTP[16..1B] DUW — display update window. 6 bytes, see Table 3-3 —
+ 7 0x90 OTP[0C..0F] DRFW — data refresh window. 4 bytes, see Table 3-3 —
+ 8 0x12 OTP[13..15] RAM_RW pointer. 3 bytes, forwarded verbatim —
+ 9 0x10 80 640 B black/white plane. 672 lines × (60 B with CS1 low, 60 B with CS2 low) —
+ 10 0x12 OTP[13..15] RAM_RW pointer again, before the second plane —
+ 11 0x11 80 640 B red plane. Always sent; a frame with no red sends zeros 660 ms
+ REGISTER SEQUENCE — 1210 MS IN TOTAL
+ 12 0x05 7D opens the sequence 200 ms
+ 13 0x05 00 — 10 ms
+ — 0xC2 — not sent on this variant —
+ 14 0xD8 OTP[1D] unnamed panel setting, from the fuse block —
+ 15 0xD6 OTP[1E] unnamed panel setting, from the fuse block —
+ 16 0xA7 10 load strobe 1, high 100 ms
+ 17 0xA7 00 load strobe 1, low. No oscillator write follows here 100 ms
+ 18 0x44 00 waveform source pointer —
+ 19 0x45 80 bank, the driver's own default —
+ 20 0xA7 10 load strobe 2, high 100 ms
+ 21 0xA7 00 load strobe 2, low 100 ms
+ 22 0x44 06 waveform source pointer —
+ 23 0x45 84 bank. 0x84 on this variant —
+ 24 0xA7 10 load strobe 3, high 100 ms
+ 25 0xA7 00 load strobe 3, low. This pair commits the OTP waveform 500 ms
+ 26 0x60 OTP[0B] TCON, before STV —
+ 27 0x61 OTP[1C] STV —
+ — 0x01 — not sent here — it went out at step 5 —
+ 28 0x02 OTP[11] closes the sequence —
+ WAVEFORM, BOOSTER, TRIGGER
+ 29 0xB0 400 B short waveform table — fast refresh only. Section 3.5 —
+ 30 0x09 from OTP DC/DC soft start. Four stage records at OTP[0x20..0x3F], section 4.2 100 ms
+ 0x51
+ 31 — — wait for BUSY high. This variant is usually still ramping here; triggering into a ramping booster is the "sits —
+ still, then suddenly draws" fault
+ 32 0x15 3C start the update. Runs ~1070 ms —
+ 33 0x15 3C second pull. No plane data, no register touched —
+ # INDEX BYTES MEANING OF EACH BYTE DELAY AFTER
+ 34 0x15 3C third pull —
+ 35 — — watch 1 s in case BUSY drops again for a second waveform pass —
+ FIG. 3-1   B1 REGISTER SEQUENCE AGAINST REAL TIME
+ REGISTER t = 0 t = 1210 ms
+ 0x05 7D 00
+ strobe 1 strobe 2 strobe 3
+ 0xA7
+ 0x44 not set 00 06
+ 0x45 not set 80 84
+ writes
+ 05 05 D8 A7 44 A7 44 A7 60
+ D6 45 45 61
+ A7 A7 A7 02
+ 200 100 100 100 100 100 500
+ delay / ms
+ 10
+ 0xB0
+ At t = 1210 the sequence ends. Then 0xB0 takes 400 B on a fast refresh, then the DC/DC soft start, 100 ms settle, 0x15 three times.
+ 0xC2 and 0x01 are not written on this variant and no 0x03 follows strobe 1. Both omitted writes carry no delay, so the sequence still takes 1
+ Same axis, same 1210 ms. 0xC2 and 0x01 are absent from the burst row and no 0x03 follows strobe
+ 1; because neither omitted write carries a delay, the sequence takes exactly as long as it does on the
+ other variant. The bank written before strobe 3 is 0x84.
+ 3.3 Window registers, byte by byte
+ Identical fields and identical OTP offsets to the 084 — but only because the block was
+ remapped during the probe. In the raw block these fields sit one byte lower from 0x12
+ onward; see section 4.3.
+ TABLE 3-3   MULTI-BYTE PAYLOADS, AFTER THE REMAP
+ INDEX BYTE CANONICAL RAW B1 MEANING
+ 0x13 [0] OTP[0x16] 0x15 x start, in bytes
+ DUW [1] OTP[0x17] 0x16 x end = 0x3B = 59, i.e. 60 bytes per COG. Also a detection byte
+ [2] OTP[0x18] 0x17 y window. Forwarded verbatim
+ [3] OTP[0x19] 0x18
+ [4] OTP[0x1A] 0x19
+ [5] OTP[0x1B] 0x1A
+ 0x90 [0] OTP[0x0C] 0x0C forwarded verbatim
+ DRFW [1] OTP[0x0D] 0x0D x end = 0x3B. Also a detection byte
+ [2] OTP[0x0E] 0x0E forwarded verbatim
+ [3] OTP[0x0F] 0x0F
+ 0x12 [0] OTP[0x13] 0x12 RAM read/write pointer. Forwarded verbatim, re-sent before each plane
+ RAM_RW [1] OTP[0x14] 0x13
+ [2] OTP[0x15] 0x14
+ 3.4 Refresh timing
+ FIG. 3-2   B1 FAST REFRESH, SUPPLY-ON TO SHUTDOWN
+ EVENT 0xB0 0x15 0x15
+ 0x15
+ VCC_EN
+ RST
+ BUSY
+ SDA / SCL bitbang
+ SPI 4 MHz
+ settle settle init registers WAVEFORM RUNS watch stop
+ pull 1 pull 2 pull 3
+ 950 ~350 1210 3 x 1070
+ 8882 ms total, cold session
+ All figures in ms. A kept-open session re-enters at the plane write and ends at the trigger: no supply cycle,
+ no reset, no register sequence, no soft start.
+ Three separate BUSY low periods of about 1070 ms each. Everything up to the trigger is loaded once;
+ a pull is a bare 0x15.
+ 3.5 Waveform table at 0xB0
+ 400 bytes: five tables of ten groups of eight bytes. One whole byte per frame count, so a
+ phase is not capped at 15 the way the 084's nibbles cap it.
+ FIG. 3-3   400-BYTE PAYLOAD GEOMETRY
+ 0xB0 payload, 400 bytes
+ table 0 paper table 1 ink table 2 red table 3 unused table 4 VCOM
+ each table = 10 groups
+ g0 g1 g2 g3 g4 g5 g6 g7 g8 g9
+ each group = 8 bytes
+ level on off ph2 on off ph2 repeat
+ +0 +1 +2 +3 +4 +5 +6 +7
+ Byte offset of table t, group g, byte n = (t * 10 + g) * 8 + n
+ 3.5.1 Group record
+ Level byte first, then two (on, off, ph2) triples, then the repeat count. The level byte uses
+ the same encoding as Table 2-4: two bits per phase, phase 0 in the top bits.
+ FIG. 3-4   ONE GROUP RECORD DECODED
+ +0 level +1 on +2 off +3 ph2 +4 on +5 off +6 ph2 +7 rep
+ BYTES 0x44 45 1 1 45 1 1 3
+ half 1 = level phases 0,1 half 2 = level phases 2,3
+ one repeat, 94 nominal frames
+ 45 frames 45 frames
+ VDH
+ ON THE FILM GND . . .x 3 = 282 nominal frames
+ VDL
+ A whole byte per count, so 45 frames fits here where the 084 is capped at 15 by its nibble packing. ph2 is
+ written as a constant 1 and never varied, so each half is simply drive, then rest.
+ Every level this driver writes has the form AB AB, so phases 0 and 2 share a level and phases 1 and 3
+ share one. That matches the two identical triples: each is a drive followed by a rest.
+ 3.5.2 Table listing
+ TABLE 3-4   B1 TABLE, ALL 400 BYTES
+ TABLE GROUP BYTES PHASE LEVELS ON/OFF REP ROLE
+ 0 paper 0 99 0A 0A 01 0A 0A 01 03 VDL VDH VDL VDH 10 / 10 3 split shake, one half of the pixels
+ 0 paper 1–4 AA 2D 03 01 2D 03 01 03 VDL × 4 45 / 3 3 drive to paper, longer rest
+ 0 paper 5–9 00 01 01 01 01 01 01 01 GND × 4 1 / 1 1 finished
+ 1 ink 0 66 0A 0A 01 0A 0A 01 03 VDH VDL VDH VDL 10 / 10 3 split shake, opposite phase to paper
+ 1 ink 1–4 44 2D 01 01 2D 01 01 03 VDH GND VDH GND 45 / 1 3 drive to ink
+ 1 ink 5–9 00 01 01 01 01 01 01 01 GND × 4 1 / 1 1 finished
+ 2 red 0 EE 0A 0A 01 0A 0A 01 03 VDHR VDL VDHR VDL 10 / 10 3 split shake
+ 2 red 1 AA 2D 01 01 2D 01 01 03 VDL × 4 45 / 1 3 clear before setting — a pixel on its way to red
+ may be coming from black
+ 2 red 2–9 FF 2D 01 01 2D 01 01 03 VDHR × 4 45 / 1 3 reduced positive rail, eight groups of it
+ 3 unused 0 00 0A 0A 01 0A 0A 01 03 GND × 4 10 / 10 3 unreachable table, but it carries the group
+ timing
+ 3 unused 1–4 00 2D 01 01 2D 01 01 03 GND × 4 45 / 1 3
+ 3 unused 5–9 00 01 01 01 01 01 01 01 GND × 4 1 / 1 1 —
+ 4 VCOM 0–9 00 01 01 01 01 01 01 01 GND × 4 1 / 1 1 ground throughout
+ Hex for the counts: 0x0A = 10, 0x2D = 45, 0x03 = 3, 0x01 = 1.
+ FIG. 3-5   ALL FIVE TABLES BY GROUP
+ g0 g1 g2 g3 g4 g5 g6 g7 g8 g9
+ 0 paper 99 AA AA AA AA 00 00 00 00 00
+ 1 ink 66 44 44 44 44 00 00 00 00 00
+ 2 red EE AA FF FF FF FF FF FF FF FF
+ 3 unused 00 00 00 00 00 00 00 00 00 00
+ 4 VCOM 00 00 00 00 00 00 00 00 00 00
+ on / off x rep 10/10x3 45/1x3 45/1x3 45/1x3 45/1x3 1/1x1 1/1x1 1/1x1 1/1x1 1/1x1
+ Tables 0 and 1 take one half of the pixels each, so they get opposite drives rather than the 084's one-white-table-
+ three-black. The shake in g0 is split for the same reason: one level written into every table would swamp that
+ division and push the whole panel one way.
+ NOTE Full duty on both tables costs paper brightness: 45/1 everywhere dropped it
+ from L* 76.7 to 67.1, which is why paper keeps the longer 45/3 rest.
+ Measured against a conditioned film: ink at L* 15.1 with a* +1.88, paper at L*
+ 86.9, contrast 71.8, in 3460 ms against 33 400 ms for the panel's own
+ waveform.
+ 3.5.3 Why the table is pulled three times
+ FIG. 3-6   NOMINAL TABLE LENGTH AGAINST THE REAL REFRESH WINDOW
+ WHAT THE 400-BYTE TABLE ASKS FOR, IN NOMINAL FRAMES
+ table 0 paper g0 g1 g2 g3 g4 1332 f
+ table 1 ink g0 g1 g2 g3 g4 1284 f
+ table 2 red g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 2664 f
+ Groups 5-9 of the red table keep driving where paper and ink have already stopped.
+ 0x15 0x15 0x15
+ WHAT THE PANEL ACTUALLY RUNS
+ ~1070 ms ~1070 ms ~1070 ms ~3460 ms
+ pull 1 pull 2 pull 3
+ These are not the same axis. On this COG the table length does not set the refresh length, so only a prefix of the
+ table is played per pull. That is the whole reason the dose is delivered three times, and why writing a longer
+ table changes nothing.
+ The refresh runs for a fixed time whatever the table asks for, so a single pass cannot carry enough
+ dose to clear the previous frame however long the table is written. The dose is delivered as three
+ pulls of the already-latched waveform instead.
+ 3.6 Shutdown
+ Identical to the 084: 0x09←7F, 20 ms; 0x05←7D; 0x09←00, 200 ms; DC and both chip
+ selects low, 150 ms; RST low and VCC_EN released, 300 ms; chip selects and RST high.
+ 4 OTP block
+ 88 bytes of fuse, read once and cached. It cannot change between refreshes, and the
+ read costs about 2.8 s because it is clocked at ~50 kHz and both openers are tried.
+ 4.1 Byte map
+ TABLE 4-1   FIELD MAP, BOTH LAYOUTS
+ CANONICAL RAW B1 LEN FIELD GOES TO
+ 0x00 0x00 1 header must read 0xA5 on an 084; forced to 0xA5 after a B1 remap
+ 0x01–0x0A same 10 not used by this driver —
+ 0x0B same 1 TCON 0x60
+ 0x0C–0x0F same 4 DRFW 0x90. Byte 0x0D validated as 0x3B
+ 0x10 same 1 DCTL 0x01
+ 0x11 same 1 unnamed 0x02
+ 0x12 aliased 1 oscillator 0x03, second byte. 084 only
+ 0x13–0x15 0x12–0x14 3 RAM_RW 0x12, before each plane
+ 0x16–0x1B 0x15–0x1A 6 DUW 0x13. x end validated as 0x3B
+ 0x1C 0x1B 1 STV 0x61
+ 0x1D 0x1C 1 unnamed 0xD8
+ 0x1E 0x1D 1 unnamed 0xD6
+ 0x20–0x3F 0x28–0x47 32 DC/DC ramp four 8-byte stage records, section 4.2
+ 4.2 DC/DC ramp stage record
+ Four records of eight bytes. Bit 7 of the first byte selects the loop shape; the low seven bits
+ are the repeat count.
+ FIG. 4-1   RAMP STAGE RECORD AND THE TWO LOOP SHAPES
+ +0 +1 +2 +3 +4 +5 +6 +7
+ bit7|rep ph0 init ph1 init ph0 step ph1 step 0x09 pre 0x09 post rampdeelda,y bit 7 = 1
+ bit7|rep 0x09 a 0x09 b delay a delay b - - plain-, bit 7 = 0
+ RAMPED PLAIN
+ repeat (+0 & 0x7F) times: repeat (+0 & 0x7F) times:
+ 0x09 <- [+5] 0x09 <- [+1]
+ ph0 += [+3] ; ph1 += [+4] delay [+3]
+ 0x51 <- ph0, ph1 0x09 <- [+2]
+ 0x09 <- [+6] delay [+4]
+ delay [+7] (0x51 is never written)
+ delay byte: bit 7 = 1 -> (v & 0x7F) ms, minimum 1 bit 7 = 0 -> (v & 0x7F) x 10 us
+ so one byte spans 10 us to 127 ms
+ The repeat count is run verbatim, with no clamp. 0xFF asks for 127 rounds and hangs BUSY, which is why all four
+ stages are rejected up front rather than fixed up here.
+ NOTE All four stages are validated before the booster is driven: a stage byte must be
+ neither 0xFF nor zero repeats nor more than 40. 0xFF asks for 127 ramp
+ rounds and hangs BUSY. Changing how the booster ramps is what stresses a
+ panel, so a garbled block is refused rather than clamped.
+ 4.3 Driver-B remap
+ FIG. 4-2   THE TWO MOVES THAT CONVERT A RAW B1 BLOCK
+ B1 AS READ
+ DRFW 0x02 DUW 0xD8
+ TCON DCTRLAM_RW STV0xD6
+ the three bytes that identify a B1
+ move the ramp block down 8 B
+ DC/DC ramp, 4 x 8 B
+ shift 0x12..0x1D up by one
+ offset 00 08 10 18 20 28 30 38 40 48 50 58
+ DC/DC ramp, 4 x 8 B
+ DRIVER 8
+ TCON DCTLOSC DUW 0xD8
+ = 0xA5 DRFW 0x0R2AM_RW STV0xD6
+ Then OTP[0] is forced to 0xA5, so everything downstream reads one layout. Native 0x12 ends up in both OSC and
+ RAM_RW[0]; harmless, because 0x03 is never sent on a B1.
+ 5 Refresh control
+ 5.1 Mode and red handling
+ A fast refresh is black and white. The short waveform cannot make a good red: on the 084
+ the red table is barely reached in the time the short table runs, and on the B1 the fixed
+ window leaves red pale and getting worse with every frame that half-drives it. Red content
+ is drawn as ink instead of being dropped, so the picture stays readable and simply goes
+ monochrome until the next slow refresh.
+ Red already on the film is the harder case. A few clearing groups are not enough —
+ measured on the panel the red survives them, and once it has sat through one fast frame it
+ does not come out of the next one either. So the first fast refresh after a red frame silently
+ runs on the panel's own waveform. The promotion is to the waveform only; red stays
+ suppressed, which is also what stops it repeating.
+ FIG. 5-1   REFRESH DECISION FLOW
+ INPUT refresh_display(mode)
+ scan the red plane
+ have_red = any bit set in 80 640 bytes
+ draw_red = have_red AND (mode == SLOW OR EPD_FAST_ALLOW_RED)
+ red that is not drawn is OR-ed into the bw plane: drawn as ink
+ mode == FAST and red is still on the panel ?
+ yes -> drive = SLOW, red stays suppressed
+ happens once: this pass takes the red off the film
+ does the latched waveform still match ?
+ no -> close the session (0xB0 cannot be re-latched in place)
+ PROMOTION
+ write plane 0x10, then plane 0x11
+ both always sent; an empty red plane is a plane of zeros
+ first image of the session -> full sequence + 0xB0 + soft start + 0x15
+ later image -> bare 0x15
+ driver B and fast -> two more pulls
+ record whether red is now on the film (kept in RTC memory)
+ TABLE 5-1   WHAT EACH CASE ACTUALLY DRIVES
+ CASE WAVEFORM RED DRAWN 084 TABLE B1 PULLS
+ slow, no red OTP — not used 1
+ slow, red OTP yes not used 1
+ fast, no red anywhere 0xB0 — base, 103 f 3
+ fast, red in this frame, default config 0xB0 no, as ink base, 103 f 3
+ fast, red in this frame, red allowed 0xB0 yes variant B, 264 f 3
+ fast, red still on the panel OTP, promoted no not used 1
+ 5.2 Session and latching
+ The panel latches one waveform per session and will not take a second one. Rewriting
+ 0xB0 inside an open session does not re-latch it — it drops the panel back onto its own
+ waveform. Anything that needs a different table therefore closes the session first: a change
+ of mode, or on an 084 a change in whether the table carries red.
+ With the session held open, a later image costs only its plane data and a bare 0x15: no
+ supply cycle, no reset, no register sequence, no soft start. The session is torn down every
+ 20 images regardless.
+ 6 Timing constants
+ TABLE 6-1   MEASURED AND MANDATED TIMINGS
+ STEP VALUE WHY
+ Minimum supply-off time 1500 ms The booster rails have to bleed down. At 800 ms the COG init fails and the OTP reads back
+ corrupt
+ Settle after supply on 800 ms Vendor reset shape with margin added
+ Reset pulse 50 / 100 / 400 ms High, low, high. Shortening it shows up as a failed init, not a worse picture
+ OTP read ~2800 ms 88 bytes at ~50 kHz, both openers tried. Paid once per power cycle
+ Plane transfer ~350 ms 2 × 80 640 B at 4 MHz. Bitbanging this is what made a frame eighteen seconds
+ Settle before the register 660 ms —
+ sequence
+ Register sequence 1210 ms 200 + 10 + 6 × 100 + 500, identical on both variants
+ Soft start from the OTP Four stages, repeat counts run verbatim
+ Post-soft-start settle 100 ms + wait Ceiling 10 s on BUSY, then it proceeds anyway
+ Refresh, own waveform ~51 s / ~34 s 084 / B1
+ Refresh, short waveform 3296 ms / ~3460 ms 084 one trigger / B1 three pulls
+ Second-pass watch 1000 ms Some panels drop BUSY again for a second waveform pass
+ Idle ceiling 180 000 ms Has to clear a 51 s refresh with room to spare
+ Shutdown 670 ms 20 + 200 + 150 + 300
+ 7 Errata
+ 1. Supply polarity does not fail like a power fault. With the enable inverted the OTP read still
+ succeeds, because it runs during a window where the pin happens to sit at the other level.
+ The failure appears only at the soft start, as a booster that never reports ready.
+ 2. 0xB0 has one window. Before the last load strobe it is overwritten by the OTP waveform;
+ after the soft start it is too late; inside an open session it does not re-latch.
+ 3. A zero group is not an empty group. It runs about four seconds.
+ 4. Group timing applies to every table. A table left at one frame of ground ends the group
+ there whatever the others asked for, VCOM included.
+ 5. EPD_T_PRE_SS is in units of 10 ms, unlike every other timing constant in the configuration
+ header. The value 50 produces 500 ms, which is what both sequence tables show.
+ 6. Both plane bits set lands on table 3, which no waveform drives.
+ 7. "Red is on the panel" has to outlive RAM. The film is not reset by the MCU losing its
+ memory, and a wake that believes the panel is red-free will run a fast refresh straight over
+ red that nothing short can remove. The flag is kept in RTC memory.
+ 8. Do not release the bus pins while the panel is off. Sound in theory — driving an
+ unpowered COG backfeeds it through the ESD diodes — and it broke this panel: the refresh
+ reached the soft start and BUSY never came ready. Only the two shared bus pins change
+ hands between bitbang and SPI.
+ 9. On a B1, do not skip 0x70. Without it the panel draws about 2 A during refresh.
+ Derived from src/epd97.cpp, src/epd97_lut.h and include/epd97_config.h,
+ itself a port of the EFR32FG22 OEPL driver
+ oepl_display_driver_pervasive_itc_medium.c, which is the origin of the
+ measured figures. Where the driver source does not evidence a register's function, this
+ note describes its effect rather than assigning a name.

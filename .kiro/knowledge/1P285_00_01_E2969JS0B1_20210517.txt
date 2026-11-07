@@ -1,0 +1,1518 @@
+ Doc. No. 1P285-00 
+ 
+ Product Specifications 
+ Customer STANDARD 
+ Description 9.7” 3-Colors TFT EPD Panel 
+ Model Name E2969JS0B1 
+ Date 2021/05/17 
+ Doc. No. 1P285-00 
+ Revision 01 
+ 
+ Customer Approval 
+ 
+ Date 
+ The above signature represents that the product specifications, testing regulation, and 
+ warranty in the specifications are accepted 
+ 
+ Design Engineering 
+ 
+ Approval Check Design 
+ 
+ 陳
+ 黃 柯 
+ 2021.05.17 
+ 
+ 2021.05.17 2021.05.17 
+ 
+ 家瑩 
+ 朝玄 
+ 建宏 
+ 4F, No. 28, Chuangye Rd., Tainan Science Park, Tainan City 74144, Taiwan (R.O.C.) 
+ Tel: +886-6-279-5399 Fax: +886-6-505-5300 
+ Rev.: 01 Page: 1 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ 不得複製、翻印或轉變成其他形式使用。
+ 
+ 本資料為龍亭新技專有之財產，非經許可，
+ prior permission of PDI. ( PDI Confidential ) 
+ Doc. No. 1P285-00 
+ Copyright 
+ Pervasive Displays Incorporated All rights reserved. 
+ This document is the exclusive property of Pervasive Displays Inc. (PDI) and shall not be 
+ reproduced or copied or transformed to any other format without prior permission of PDI. 
+ (PDI Confidential) 
+ 本資料為龍亭新技股份有限公司專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ 
+ 龍亭新技股份有限公司 Pervasive Displays Inc. 
+ 4F, No. 28, Chuangye Rd., Tainan Science Park, Tainan City 74144, Taiwan (R.O.C.) 
+ Tel: +886-6-279-5399 
+ http://www.pervasivedisplays.com 
+ Rev.: 01 Page: 2 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ Table of Contents 
+ Revision History ........................................................................................................ 6 
+ Glossary of Acronyms ................................................................................................ 7 
+ 1 General Description .............................................................................................. 8 
+ 1.1 Overview .................................................................................................. 8 
+ 1.2 Features ................................................................................................... 8 
+ 1.3 Applications .............................................................................................. 8 
+ 1.4 General Specifications ................................................................................. 9 
+ 2 Absolute Maximum Ratings ................................................................................. 12 
+ 2.1 Absolute Ratings of Environment ................................................................ 12 
+ 2.2 Reliability Test Item .................................................................................. 13 
+ 2.3 Product Warranty ..................................................................................... 13 
+ 3 Electrical Characteristics ..................................................................................... 14 
+ 3.1 Absolute Maximum Ratings of Panel ............................................................ 14 
+ 3.2 Recommended Operation Conditions of Panel ................................................ 14 
+ 4 Application Circuit Block Diagram ......................................................................... 16 
+ 5 Terminal Pin Assignment & Reference Circuit .......................................................... 17 
+ 5.1 Terminal Pin Assignment ........................................................................... 17 
+ 5.2 Reference Circuit ...................................................................................... 20 
+ 6 Optical Characteristics ........................................................................................ 21 
+ 6.1 Measurement Conditions ........................................................................... 21 
+ 6.2 Optical Specifications ................................................................................ 21 
+ 6.2.1 Optical .......................................................................................... 21 
+ 6.2.2 Ghosting ........................................................................................ 24 
+ 7 Packing ............................................................................................................ 25 
+ 8 Precautions ...................................................................................................... 27 
+ 9 Definition of Labels ............................................................................................ 29 
+ 
+ Rev.: 01 Page: 3 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ List of Figures 
+ Figure 1-1 EPD Drawing .............................................................................. 10 
+ Figure 3-1 Test Pattern of Panel .................................................................... 15 
+ Figure 3-2 Image Update Current Profile ........................................................ 15 
+ Figure 3-3 Current Measurement .................................................................. 15 
+ Figure 4-1 Application Circuit Block Diagram ................................................... 16 
+ Figure 5-1 EPD Reference Circuit .................................................................. 20 
+ Figure 6-1 Optical measurement ................................................................... 22 
+ Figure 6-2 Definition of Viewing Angle to Measure Contrast Ratio ....................... 23 
+ Figure 7-1 Packing Diagram ......................................................................... 25 
+ Figure 9-1 Definition of Model Labels ............................................................. 29 
+ Figure 9-2 Carton Label ............................................................................... 29 
+ Figure 9-3 Pallet Label ................................................................................ 30 
+ 
+ Rev.: 01 Page: 4 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ List of Tables 
+ Table 1-1 General Specification ....................................................................... 9 
+ Table 2-1 Absolute Ratings of Environment ..................................................... 12 
+ Table 2-2 Reliability Test Items ..................................................................... 13 
+ Table 3-1 Absolute Maximum Ratings of Panel ................................................. 14 
+ Table 3-2 Recommended Operation Conditions of Panel .................................... 14 
+ Table 5-1 FPC Specification .......................................................................... 17 
+ Table 5-2 Terminal Pin Assignment (Master FPC) ............................................... 17 
+ Table 5-3 Terminal Pin Assignment (Slave FPC) ................................................. 18 
+ Table 6-1 Optical Measurement Conditions...................................................... 21 
+ Table 6-2 Optical Measurement with D65 light source ....................................... 21 
+ Table 6-3 Measurement of Ghosting .............................................................. 24 
+ 
+ Rev.: 01 Page: 5 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ Revision History 
+ Page 
+ Version Date Section Description 
+ (New) 
+ 01 2021/05/17 All All Product specification first issued. 
+ 
+ 
+ 
+ Rev.: 01 Page: 6 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ Glossary of Acronyms 
+ 
+ COG Chip on Glass 
+ EPD Electrophoretic Display (e-Paper Display) 
+ EPD Panel EPD 
+ EPD Module EPD with TCon board 
+ FPC Flexible Printed Circuit 
+ FPL Front Plane Laminate 
+ IIS Incoming Inspection Standard 
+ ISTA International Safe Transit Association 
+ MCU Microcontroller Unit 
+ PDI Pervasive Displays Incorporated 
+ SPI Serial Peripheral Interface 
+ TCon Timing Controller 
+ TFT Thin Film Transistor 
+ 
+ 
+ Rev.: 01 Page: 7 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 1 General Description 
+ 1.1 Overview 
+ This is a 9.7” a-Si, active matrix TFT, Electronic Paper Display (EPD) panel. The 
+ panel has such high resolution (121 dpi) that it can easily display fine patterns. Due 
+ to its bi-stable nature, the EPD panel requires low power to update pattern and 
+ needs no power to maintain an image. 
+ 1.2 Features 
+ - a-Si TFT active matrix Electronic Paper Display (EPD) 
+ - Three colors support: White, Black, Red 
+ - Resolution: 672 x 960 
+ - Ultra-low power consumption 
+ - Super Wide Viewing Angle - near 180° 
+ - Extra thin & light 
+ - SPI interface 
+ - RoHS compliant 
+ 1.3 Applications 
+ - e-POP/Signage 
+ - Electronic bulletins 
+ - Office Automation 
+ - Navigator 
+ 
+ Rev.: 01 Page: 8 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 1.4 General Specifications 
+ Table 1-1 General Specification 
+ Item Specification Unit Note 
+ Outline Dimension 155.9 (H) x 215.2 (V) x 3.0(T) mm (1) 
+ Active Area 141.12(H) x 201.6(V) mm 
+ Driver Element a-Si TFT active matrix - 
+ FPL Spectra Red R2.0 - 
+ Pixel Number 672 x 960 pixel 
+ Pixel Pitch 0.210 x 0.210 (121dpi) mm 
+ Pixel Arrangement Vertical stripe - 
+ Display Colors Black/White/Red - 
+ Surface Treatment Anti-Glare - 
+ Weight 159 g 
+ Note (1): Not including the FPC. 
+ Rev.: 01 Page: 9 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 
+ Figure 1-1 EPD Drawing 
+ 155.30±0.2(TFT)
+ (3.60) 141.12(AA)
+ (74.56)
+ Silicon Glue
+ 9.80±0.3
+ 3.50±0.3
+ 1
+ .
+ 0
+ Master FPC
+ ±
+ 0
+ 5
+ .
+ 2
+ 1
+ )
+ T
+ F
+ )
+ T
+ (
+ A
+ 2
+ A
+ .
+ (
+ 0
+ 0
+ ±
+ 6
+ .
+ 0
+ 1
+ 6
+ .
+ 0
+ 4
+ 2
+ 1
+ 2
+ 1
+ .
+ 0
+ 5
+ ±
+ 9
+ .
+ 0
+ Slave FPC
+ 8
+ 5
+ .
+ 4
+ 2
+ 1
+ 1
+ )
+ 0
+ 4
+ .
+ 4
+ 0
+ 1
+ (
+ 3.50±0.3
+ 9.80±0.3
+ 5
+ 1
+ .
+ 8
+ 4
+ )
+ 0
+ )
+ Pull Tab
+ 6
+ d
+ )
+ .
+ r
+ r
+ 3
+ a
+ e
+ (
+ o
+ n
+ b
+ e
+ 
+ f
+ f
+ 2
+ n
+ i
+ .
+ i
+ t
+ 0
+ s
+ S
+ ±
+ e
+ (
+ r
+ )
+ 0
+ 3
+ 
+ )
+ 0
+ 0
+ 0
+ h
+ .
+ .
+ t
+ T
+ 3
+ i
+ .
+ 3
+ 0
+ F
+ 3
+ w
+ ±
+ 
+ 
+ T
+ l
+ (
+ 0
+ x
+ a
+ 0
+ 3
+ a
+ t
+ .
+ EC Glue
+ 5
+ o
+ .
+ 0
+ Stiffener
+ M
+ t
+ (
+ (
+ 0
+ Golden finger
+ 
+ Rev.: 01 Page: 10 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 
+ +0.5
+ 155.9 (Resin board)
+ -0.2
+ 123.0±0.2
+ 33.0±0.2
+ +3.0
+ 2.2
+ -0.5
+ )
+ 2
+ .
+ 0
+ .
+ 0
+ Rear Label
+ 2
+ 0
+ ±
+ 5
+ .
+ 1
+ .
+ 0
+ (
+ 3
+ .
+ 0
+ -
+ +
+ 3
+ 2
+ 2
+ .
+ 2
+ 7 7
+ .
+ .
+ 0
+ 0
+ ±
+ ±
+ (25.0)
+ 0 0
+ .
+ .
+ 2
+ 2
+ 3.0±0.3
+ Pin-24
+ )
+ d
+ 2
+ .
+ r
+ 0
+ a
+ ±
+ o
+ 0
+ b
+ .
+ 
+ 3
+ n
+ i
+ 1
+ s
+ 1
+ e
+ R
+ (
+ Pin-1
+ 5
+ 2
+ .
+ .
+ 3
+ 0
+ 0
+ 0
+ -
+ .
+ +
+ 3
+ 0
+ 2
+ .
+ 0
+ ±
+ .
+ 5
+ 5
+ 0
+ .
+ 1
+ ±
+ 1
+ 5
+ 2
+ 1
+ 3
+ =
+ .
+ )
+ 0
+ 1
+ -
+ =
+ 4
+ h
+ t
+ 2
+ d
+ (
+ i
+ *
+ 5
+ W
+ .
+ 0
+ P
+ 7
+ .
+ 0
+ ±
+ 0
+ .
+ 2
+ 3.0±0.3
+ Pin-24
+ Pin-1
+ 3
+ 0
+ .
+ 3
+ 0
+ 0
+ ±
+ .
+ 5
+ 0
+ .
+ ±
+ 1
+ 5
+ 1
+ 3
+ =
+ .
+ )
+ 0
+ 1
+ -
+ =
+ 4
+ h
+ t
+ 2
+ d
+ (
+ i
+ *
+ 5
+ W
+ .
+ 0
+ P
+ 
+ 
+ General tolerance: ±0.3mm 
+ Rev.: 01 Page: 11 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 2 Absolute Maximum Ratings 
+ 2.1 Absolute Ratings of Environment 
+ Table 2-1 Absolute Ratings of Environment 
+ Value 
+ Item Symbol Unit Note 
+ Min. Max. 
+ Storage Temperature T -25 +60 ºC (1),(3),(4) 
+ ST
+ Storage Humidity H 40 70 %RH (1),(3),(4) 
+ ST
+ Operating Ambient Temperature T 0 +40 ºC (1),(2),(3),(4) 
+ OP
+ Operating Ambient Humidity H 40 70 %RH (1),(2),(3),(4) 
+ OP
+ Optimal Storage Temperature T -10 +35 ºC (1),(3),(4) 
+ OST
+ Optimal Storage Humidity H 45 65 %RH (1),(3),(4) 
+ OST
+ Note (1): 
+ (a) 70 %RH Max. (Ta ≦ 40 ºC), 40%RH Min. (Ta ≦ 60 ºC) where Ta is 
+ ambient temperature. 
+ (b) No condensation and no frost in absolute ratings of Environment. 
+ Note (2): The temperature of panel display surface area should be 0ºC Min. and 
+ 40ºC Max. Refresh time depends on operating temperature. 
+ Note (3): Reddish on the edge of black image is normal at high temperature. 
+ Note (4): E Ink Material is Moisture and UV sensitive. The absolute rating operating 
+ environments describes the boundary conditions for updating the display 
+ while the absolute rating storage environment describe the boundary 
+ conditions for a display not updating. While displays are rated to 
+ perform according to specification for the warranty period at the absolute 
+ specified operating environment, the better the storage condition, the 
+ better the E Ink displays will perform. Similar to other moisture and UV 
+ sensitive components, we recommend that our displays be stored in 
+ temperature and humidity control environments, and whenever possible, 
+ under above defined Optimal Storage Condition, away from sunlight, to 
+ optimize their performance. 
+ Note (5): The performance of EPD may be degraded under sunlight. Please 
+ customer consults PDI if customer wants to use EPD under sunlight. 
+ 
+ Rev.: 01 Page: 12 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 
+ 2.2 Reliability Test Item 
+ Table 2-2 Reliability Test Items 
+ Item Test Condition Remark 
+ 40 ℃ / 30 %RH for 240h 
+ High Temperature Operation (1) (2) 
+ 0 ℃ for 240h 
+ Low Temperature Operation (1) (2) 
+ High Temperature/Humidity 
+ 40 ℃ / 80 %RH for 240h 
+ (1) (2) 
+ Operation 
+ 60 ℃ / 40 %RH for 240h 
+ High Temperature Storage (1)(2)(3) 
+ -25 ℃ for 240h 
+ Low Temperature Storage (1)(2)(3) 
+ High Temperature/Humidity 
+ 60 ℃ / 80 %RH for 240h 
+ (1)(2)(3) 
+ Storage 
+ 1 Cycle:-25℃/30min → 60℃/30min, for 
+ Thermal Cycles ( Non-
+ (1)(2)(3) 
+ operation ) 
+ 100 Cycles 
+ Drop from 97cm. ( ISTA ) 
+ Package Drop Test (1)(2)(3) 
+ 1 corner, 3 edges, 6 sides. One drop for 
+ each. 
+ Package Random Vibration 
+ 1.15Grms, 1Hz ~ 200Hz. ( ISTA ) (1)(2)(3) 
+ Test 
+ Note (1): No condensation and no frost during test. End of test, function, 
+ mechanical, and optical shall be satisfied with product specification and 
+ IIS. 
+ Note (2): The test result and judgment are based on PDI’s 1bit driving waveform, 
+ driving fixture and driving system. 
+ Note (3): Stay white pattern for storage and non-operation test. 
+ 
+ 2.3 Product Warranty 
+ Warranty conditions have to be negotiated between PDI and individual customers. 
+ PDI provides 13 months warranty for all products which are purchased from PDI. 
+ 
+ Rev.: 01 Page: 13 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 3 Electrical Characteristics 
+ 3.1 Absolute Maximum Ratings of Panel 
+ Table 3-1 Absolute Maximum Ratings of Panel 
+ Value 
+ Parameter Symbol Unit Note 
+ Min Max 
+ Digital Power V -0.3 5.0 V 
+ DDIO
+ Analog Power V -0.3 5.0 V 
+ DDA
+ Ground V - - Connect V to Ground 
+ SS SS
+ T = 25 ± 2 ºC 
+ a
+ 3.2 Recommended Operation Conditions of Panel 
+ Table 3-2 Recommended Operation Conditions of Panel 
+ Value 
+ Parameter Symbol Unit Note 
+ Min Typ. Max 
+ V ,
+ DDIO 
+ VDDIO, VDD operation 
+ 2.3 3.0 3.6 V 
+ voltage 
+ V 
+ DD 
+ High V 0.8V - V V 
+ IH DDIO DDIO
+ Input 
+ 
+ Voltage 
+ Low V V - 0.2V V 
+ IL SS DDIO
+ High V 0.8V - V V 
+ OH DDIO DDIO
+ Output 
+ Voltage 
+ V =V 
+ DDIO CI
+ Low V V - 0.2V V 
+ OL SS DDIO
+ I =400uA, 
+ OL
+ Input Current I 11.36 mA (1), (2), (3) 
+ CC - 
+ T = 25 ± 2 ºC 
+ a
+ 
+ Rev.: 01 Page: 14 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ Note (1): 
+ Figure 3-1 Test Pattern of Panel 
+ 
+ These currents are tested with PDI test jig. 
+ 
+ Note (2): V =V =3.0V 
+ DDIO DDA
+ Figure 3-2 Image Update Current Profile 
+ 
+ 
+ Note (3): 
+ Figure 3-3 Current Measurement 
+ Computer
+ CMICROTEK uCurrent Probe
+ uCP120
+ Digital Phosphor Oscilloscope
+ USB Cable
+ PDI PDI
+ I +I (RMS)/ I
+ DD CC PEAK
+ Pattern Timing 
+ EPD Module
+ Generator Controller 
+ 10pin 
+ Board Board
+ FFC
+ 
+ *Set oscilloscope filter >200MHz and record length to 10M points. 
+ Rev.: 01 Page: 15 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 4 Application Circuit Block Diagram 
+ Figure 4-1 Application Circuit Block Diagram 
+ 
+ EPD 
+ Panel 
+ Gate 
+ Drive
+ 
+ 
+ Master Source Driver 
+ Slave Source Driver 
+ 
+ 
+ 
+ 
+ 1
+ 1
+ .
+ 4
+ 4
+ .
+ n
+ 2
+ 2
+ n
+ i
+ i
+ n
+ n
+ P
+ i
+ i
+ P
+ P
+ P
+ 
+ Connector board
+ 
+ 
+ SPI 
+ 
+ System 
+ FPC 
+ V /V 
+ DDA DDIO
+ Host 
+ (MCU) 
+ EPD 
+ Boost 
+ Circuit 
+ 
+ Rev.: 01 Page: 16 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ 不得複製、翻印或轉變成其他形式使用。
+ 
+ 本資料為龍亭新技專有之財產，非經許可，
+ prior permission of PDI. ( PDI Confidential ) 
+ Doc. No. 1P285-00 
+ 5 Terminal Pin Assignment & Reference Circuit 
+ 5.1 Terminal Pin Assignment 
+ Table 5-1 FPC Specification 
+ Item Pin numbers Pitch (mm) Connector Note 
+ HRS FH34SRJ 24S 
+ Golden Finger 24 0.5 (1) 
+ or Compatible 
+ Note (1): HRS FH34SRJ 24S is 24-pins connectors. The 24 pins are used to connect 
+ FPC pads of EPD. There are two FPCs on EPD panel. Please refer to PDI demo kit 
+ for detailed connection. 
+ Table 5-2 Terminal Pin Assignment (Master FPC) 
+ Function 
+ No. Signal Type Connected to 
+ Cascade line frame sync 
+ 1 FSYNC I/O Slave FSYNC 
+ Power MOSFET 
+ This pin is the N-Channel MOSFET Gate 
+ 2 NGDRV O 
+ Drive Control. 
+ Driver control 
+ This pin is the Current Sense Input for the 
+ Booster Control Input 
+ 3 RESE I 
+ Control Loop. 
+ OTP power internal 
+ 4 INTERNAL_VPP P VPP PIN & Slave FPC 
+ This pin is the VDHR driving voltage. 
+ 5 VDHR C Capacitor 
+ A stabilizing capacitor should be connected 
+ between VDHR and VSS. 
+ Cascade line sync 
+ 6 LNSYNC I/O Slave LNSYNC 
+ Cascade clock 
+ 7 CLK I/O Slave CLK 
+ This pin is setting panel interface. 
+ 8 BS I VSS 
+ This pin is Busy state output pin of the master 
+ chip. When Busy is Low, the operation of the 
+ Device Busy Signal 
+ 9 M_BUSY O 
+ chip should not be interrupted, and Command 
+ should not be sent. 
+ This pin is reset signal input. 
+ System Reset 
+ 10 RESETB I 
+ Active Low. 
+ This pin is Data/Command control. 
+ 11 A0 I VDDIO or VSS 
+ This pin is the Master chip select. 
+ M_CSB 
+ 12 I VDDIO or VSS 
+ Serial communication clock input. 
+ Data Bus 
+ 13 SCL I 
+ Serial communication data input/output. 
+ Data Bus 
+ 14 SDA I 
+ Rev.: 01 Page: 17 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ Function 
+ No. Signal Type Connected to 
+ Power for interface logic pins & I/O. It 
+ Power Supply 
+ 15 VDDIO P 
+ should be connected with VDDIO. 
+ Power Supply for the chip. 
+ Power Supply 
+ 16 VDD P 
+ Ground 
+ 17 VSS P Ground 
+ Internal regulator output 
+ A capacitor should be connected between 
+ 18 VDDL C Capacitor 
+ VDDL and VSS. 
+ INTERNAL_VP& 
+ OTP power 
+ 19 VPP P 
+ Slave VPP 
+ This pin is the Positive Source driving voltage. 
+ A stabilizing capacitor should be connected 
+ 20 VDH C Capacitor 
+ between VDH and VSS. 
+ This pin is the Positive Gate driving voltage 
+ A stabilizing capacitor should be connected 
+ 21 VGH C Capacitor 
+ between VGH and VSS. 
+ This pin is the Negative Source driving voltage. 
+ A stabilizing capacitor should be connected 
+ 22 VDL C Capacitor 
+ between VDL and VSS. 
+ This pin is the Negative Gate driving voltage. 
+ A stabilizing capacitor should be connected 
+ 23 VGL C Capacitor 
+ between VGL and VSS. 
+ This pin is the VCOM driving voltage 
+ A stabilizing capacitor should be connected 
+ 24 VCOM C Capacitor 
+ between VCOM and VSS. 
+ Table 5-3 Terminal Pin Assignment (Slave FPC) 
+ Function 
+ No. Signal Type Connected to 
+ Cascade line frame sync 
+ 1 FSYNC I/O Master FSYNC 
+ Not connected 
+ 2 NC - - 
+ Not connected 
+ 3 NC - - 
+ - Not connected 
+ 4 NC - 
+ This pin is the VDHR driving voltage. 
+ 5 VDHR C Capacitor 
+ A stabilizing capacitor should be connected 
+ between VDHR and VSS. 
+ Cascade line sync 
+ 6 LNSYNC I/O Master LNSYNC 
+ Cascade clock 
+ 7 CLK I/O Master CLK 
+ This pin is setting panel interface. 
+ 8 BS I VSS 
+ Rev.: 01 Page: 18 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ Function 
+ No. Signal Type Connected to 
+ This pin is Busy state output pin of the slave 
+ chip. When Busy is Low, the operation of the 
+ Device Busy Signal 
+ 9 S_BUSY O 
+ chip should not be interrupted, and Command 
+ should not be sent. 
+ This pin is reset signal input. 
+ System Reset 
+ 10 RESETB I 
+ Active Low. 
+ This pin is Data/Command control. 
+ 11 A0 I VDDIO or VSS 
+ This pin is the Slave chip select. 
+ S_CSB 
+ 12 I VDDIO or VSS 
+ Serial communication clock input. 
+ Data Bus 
+ 13 SCL I 
+ Serial communication data input/output. 
+ Data Bus 
+ 14 SDA I 
+ Power for interface logic pins & I/O. It 
+ Power Supply 
+ 15 VDDIO P 
+ should be connected with VDDIO. 
+ Power Supply for the chip. 
+ Power Supply 
+ 16 VDD P 
+ Ground 
+ 17 VSS P Ground 
+ Internal regulator output 
+ A capacitor should be connected between 
+ 18 VDDL C Capacitor 
+ VDDL and VSS. 
+ OTP power 
+ 19 VPP P Master VPP 
+ This pin is the Positive Source driving voltage. 
+ A stabilizing capacitor should be connected 
+ 20 VDH C Capacitor 
+ between VDH and VSS. 
+ This pin is the Positive Gate driving voltage 
+ A stabilizing capacitor should be connected 
+ 21 VGH C Capacitor 
+ between VGH and VSS. 
+ This pin is the Negative Source driving voltage. 
+ A stabilizing capacitor should be connected 
+ 22 VDL C Capacitor 
+ between VDL and VSS. 
+ This pin is the Negative Gate driving voltage. 
+ A stabilizing capacitor should be connected 
+ 23 VGL C Capacitor 
+ between VGL and VSS. 
+ This pin is the VCOM driving voltage 
+ A stabilizing capacitor should be connected 
+ 24 VCOM C Capacitor 
+ between VCOM and VSS. 
+ Note: 
+ Type: I: Input 
+ O: Output 
+ C: Capacitor 
+ P: Power 
+ Rev.: 01 Page: 19 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 5.2 Reference Circuit 
+ Figure 5-1 EPD Reference Circuit 
+ 1
+ FSYNC
+ FSYNC
+ 2
+ NC
+ 3
+ NC
+ 4
+ NC
+ 5
+ VDHR
+ VDHR
+ 6
+ LNSYNC
+ LNSYNC
+ 7
+ CLK
+ CLK
+ 8
+ BS
+ BS
+ 1 9
+ TP S_BUSY
+ 10
+ RESETB
+ RESETB
+ E
+ 11
+ A0
+ A0
+ 12
+ V
+ Connect to System Controller GPIO
+ S_CSB
+ 13
+ A
+ SCL
+ SCL
+ 14
+ SDA
+ L
+ SDA
+ 15
+ VDD
+ S
+ VDDIO
+ 16
+ 
+ VDD
+ 17
+ 
+ VSS
+ 18
+ VDDL
+ 
+ VDDL
+ 19
+ VPP
+ 
+ VPP
+ 20
+ VDH
+ 
+ VDH
+ 21
+ VGH
+ E
+ D
+ I
+ VGH
+ 
+ S
+ 22
+ 
+ VDL
+ B
+ C
+ P
+ 
+ L
+ E
+ N
+ VDL
+ A
+ P
+ 
+ 23
+ 
+ VGL
+ VGL
+ 24
+ VCOM
+ VCOM
+ ZIF-24-0.5-1
+ 1
+ FSYNC
+ MCH3478-TL-W 
+ FSYNC
+ 2
+ NGDRV
+ 3
+ RESE
+ 4
+ INTERNAL_VPP
+ 5
+ VDHR
+ VDHR
+ 6
+ LNSYNC
+ 0R 1uF/25V
+ LNSYNC
+ 7
+ CLK
+ CLK
+ 8
+ BS
+ BS
+ 9
+ Connect to System Controller GPIO
+ BUSY
+ 10
+ RESETB
+ Connect to System Controller GPIO
+ RESETB
+ 11
+ A0
+ Connect to System Controller SPI
+ A0
+ 12
+ Connect to System Controller GPIO
+ M_CSB
+ 13
+ R
+ SCL
+ Connect to System Controller SPI
+ SCL
+ 14
+ SDA
+ E
+ Connect to System Controller SPI
+ SDA
+ 15
+ VDD
+ T
+ VDDIO
+ 16
+ S
+ VDD
+ 17
+ 47uH
+ A
+ VSS
+ 18
+ VDDL
+ 1uF/25V
+ M
+ VDDL
+ 19
+ VPP
+ SS2040FL
+ 
+ VPP
+ 20
+ VDH
+ 1uF/25V
+ VDH
+ 
+ 21
+ VGH
+ E
+ D
+ VGH
+ I
+ 
+ S
+ 
+ 22
+ VDL
+ B
+ 4.7uF/25V
+ C
+ P
+ 
+ L
+ E
+ N
+ VDL
+ A
+ P
+ 
+ 
+ 23
+ VGL
+ 1uF/25V 0.47uF/25V
+ VGL
+ 24
+ VCOM
+ Connect to Power Switch
+ VCOM
+ 1uF/25V
+ C o n n e c t t o a T r a n s it o r S wit c h t o 
+ prevent leakage current
+ 4.7uF/6.3V
+ Connect to Power Ground
+ SS2040FL ZIF-24-0.5-1
+ 1uF/25V
+ SS2040FL
+ 
+ Type Part Quantity Vendor Note 
+ 
+ Inductor 47uH 0.3A ETPRH3D16B-470M 1pc ARLITECH 
+ ON 
+ (1) 
+ Transistor MCH3478 SOT-23 N-Channel 30V/2A 1pc 
+ Semiconductor 
+ (2) 
+ Diode SS2040FL SOD-123FL 3pcs PANJIT 
+ 
+ Capacitors 4.7uF/25V 2pc - 
+ 
+ Capacitors 1uF/25V 6pcs - 
+ 
+ Capacitors 0.47uF/25V 1pc - 
+ 
+ Resistors 0R ohm/1% 1pc - 
+ Note: 
+ (1) MCH3478 (ON Semiconductor) is a N-Channel Power MOSFET. The specification of 
+ selection criteria is R <235m ohm (the lower the better), V =30V, 
+ DS DSS
+ V =2.5V@ID=0.5A. 
+ GS
+ (2) SS2040FL is a Schottky diode needs the V as lower as possible, 0.2 to 0.4V and the 
+ f
+ repetitive peak reverse voltage > 25V. 
+ Rev.: 01 Page: 20 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 6 Optical Characteristics 
+ 6.1 Measurement Conditions 
+ Table 6-1 Optical Measurement Conditions 
+ Item Symbol Value Unit 
+ 252 
+ Ambient Temperature Ta °C 
+ 5010 
+ Ambient Humidity Ha %RH 
+ Supply Voltage V & V 3.0 V 
+ DDIO DD
+ Note: Image is updated with above condition. 
+ 
+ 6.2 Optical Specifications 
+ 
+ 6.2.1 Optical 
+ Table 6-2 Optical Measurement with D65 light source 
+ Rating Unit Note 
+ Item Color Symbol 
+ Min. Typ. Max. 
+ Black/ θx=θy=0 
+ Contrast ratio CR - 20 - - 
+ White (1),(2),(5),(6) 
+ Black/
+ Refresh time White/ Tr - (31.2) - sec (1),(3),(4),(6) 
+ Red 
+ L* 25 28 - 
+ θx=θy=0 
+ - 
+ (1),(2),(6) 
+ Red state Red a* 35 39 - 
+ a* 30 35 - @ 0ºC 
+ Reflectance White R% - 35 - % (1),(2),(6) 
+ 
+ Rev.: 01 Page: 21 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ Note (1): Panel is driven by PDI waveform without masking film and optical 
+ measurement by CM-700D with D65 light source and SCE mode. 
+ 
+ Figure 6-1 Optical measurement 
+ SCE mode 
+ 
+ 
+ Rev.: 01 Page: 22 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ 不得複製、翻印或轉變成其他形式使用。
+ 
+ 本資料為龍亭新技專有之財產，非經許可，
+ prior permission of PDI. ( PDI Confidential ) 
+ Doc. No. 1P285-00 
+ Note (2): Definition of Viewing Angle (x, y): 
+ Figure 6-2 Definition of Viewing Angle to Measure Contrast Ratio 
+ 
+ Note (3): Refresh time is the time that e-paper particles move not including the 
+ power on and off time. The refresh time is measured at 25 ºC. The 
+ refresh time and contrast ratio varies due to different films, display 
+ performance requirements, and ambient temperatures. 
+ Note (4): Tr is the refresh time. For an image with Red, Red/White, Red/Black, or 
+ Red/Black/White, the total update time is (Tr). 
+ Note (5): Contrast ratio (C.R.): The Contrast ratio is calculated by the following 
+ expression. C.R. = (R% White) / (R% Black). 
+ Note (6): Optical data is measured at 60 seconds after refresh with PDI’s global 
+ update procedure. 
+ 
+ 
+ Rev.: 01 Page: 23 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ 不得複製、翻印或轉變成其他形式使用。
+ 
+ 本資料為龍亭新技專有之財產，非經許可，
+ prior permission of PDI. ( PDI Confidential ) 
+ Doc. No. 1P285-00 
+ 
+ 6.2.2 Ghosting 
+ 
+ Below is test method to verify if ghosting is within an acceptable range. The 
+ measured data (L*, a*, b*) to calculate color different, △E (CIEDE 2000). 
+ 00
+ The condition of measurement is to follow “Table 6-1 Optical Measurement 
+ Conditions” 
+  Ghosting Measurement 
+ 
+ RR R’W R’B 
+ Repeat white 
+ 
+ image for 3 
+ W’R WW W’B 
+ times 
+ 
+ B’R B’W BB 
+ 
+ Refresh 
+ Refresh 
+ Refresh 
+ Measure it immediately 
+ 
+ immediately 
+ immediately 
+ immediately 
+ after refresh and 
+ △
+ calculate the E 
+ 00
+ 
+ 
+ Table 6-3 Measurement of Ghosting 
+ Rating 
+ Item 
+ Min. Typ. Max. 
+ B’W E 
+ △
+ - - 2 
+ 00
+ W’B E 
+ △
+ - - 2 
+ 00
+ R’W E 
+ △
+ - - TBD 
+ 00
+ W’R E 
+ △
+ - - TBD 
+ 00
+ B’R E 
+ △
+ - - TBD 
+ 00
+ R’B△E 
+ - - TBD 
+ 00
+ Note: Panel is driven by PDI’s tooling system and PDi’s waveform without 
+ masking film and optical measurement by CM-700D with D65 light source 
+ and SCE mode. 
+ 
+ Rev.: 01 Page: 24 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ 不得複製、翻印或轉變成其他形式使用。
+ 
+ 本資料為龍亭新技專有之財產，非經許可，
+ prior permission of PDI. ( PDI Confidential ) 
+ Doc. No. 1P285-00 
+ 7 Packing 
+ Figure 7-1 Packing Diagram 
+ 1 Set EPD
+ Tray
+ F/B-EPE
+ Drier x2
+ Up/Down-EPE
+ 1 PCs Empty Tray
+ 17x1=17 PCs
+ 2 PCs Tray
+ Empty 
+ R/L-EPE
+ 17 PCs
+ Plastic Bag
+ Full Tray
+ 1 PCs Empty Tray
+ Carton_Label
+ Carton
+ 
+ 
+ Rev.: 01 Page: 25 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 
+ 
+ Pallet Label
+ Film
+ PP Belt
+ Protector
+ Pallet
+ 
+ 17 (pcs) x 40 (BOX)= 680 pcs 
+ 9.7” EPD BOX 
+ N.W. : 2.71 Kg 
+ G.W. : (6.4) Kg 
+ Sea / Land / Air Transportation
+ 
+ Rev.: 01 Page: 26 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 8 Precautions 
+ (1) The EPD Panel / Module is manufactured from fragile materials such as glass and 
+ plastic, and may be broken or cracked if dropped. Please handle with care. Do not 
+ apply force such as bending or twisting to the EPD panel. Please put on gloves to 
+ handle EPD to avoid slash. 
+ (2) It is recommended to assemble or install EPD panels in a clean working area. Dust 
+ and oil may cause electrical shorts or degrade / scratch / den the protection sheet 
+ film. 
+ (3) Do not apply pressure to the EPD panel in order to prevent damaging it. 
+ (4) Do not connect or disconnect the interface connector while the EPD panel is in 
+ operation. 
+ (5) Please support the bezel with your finger while connecting the interface cable such 
+ as the FPC. 
+ (6) Do not stack the EPD panels / Modules. 
+ (7) Do not press the FPC on the glass edge or Pull FPC up / down to 90°. 
+ (8) Do not touch the FPC lead connector. 
+ (9) Do not touch IC bonding area. It may scratch TFT lead or damage IC function. 
+ (10) Wear a Wrist Strap (Grounding connect) when handling and during assembly. 
+ Semiconductor devices are included in the EPD Panel / Module and they should be 
+ handled with care to prevent any electrostatic discharge (ESD). (An Ion Fan may be 
+ needed in assembly operation to reduce ESD risk.) 
+ (11) Keep the EPD Panel / Module in the specified environment and original packing boxes 
+ when storage in order to avoid scratching and keep original performance. 
+ (12) Do not disassemble or reassemble the EPD panel. 
+ (13) Use a soft dry cloth without chemicals for cleaning. Please don’t press hard for 
+ cleaning because the surface of the protective sheet film is very soft and without 
+ hard coating. This behavior would make dent or scratch on protective sheet. 
+ (14) Please be mindful of moisture to avoid its penetration into the EPD panel, which may 
+ cause damage during operation. 
+ (15) It’s low temperature operation product. Please be mindful the temperature different 
+ to make frost or dew on the surface of EPD panel. Moisture may penetrate into the 
+ EPD panel because of frost or dew on surface of EPD panel, and makes EPD panel 
+ damage. 
+ (16) If the EPD Panel / Module is not refreshed every 24 hours, a phenomenon known 
+ as “Ghosting” or “Image Sticking” may occur. It is recommended that customer 
+ refreshed the ESL / EPD Tag every 24 hours in use case. It is recommended that 
+ customer ships or stores the ESL / EPD Tag with a completely white image to avoid 
+ this issue. 
+ (17) High temperature, high humidity, sunlight or fluorescent light may degrade the EPD 
+ panel’s performance. Please do not expose the unprotected EPD panel to high 
+ temperature, high humidity, sunlight, or fluorescent for long periods of time. 
+ Rev.: 01 Page: 27 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ (18) The label ink used for marking the Panel ID number is erased easily by solvent. 
+ Please avoid using solvent to clean the EPD panel. 
+ (19) The EPD / Module is vacuum packed with white image for shipment and storage. 
+ (20) Before approved by PDI and customer, products and product specifications may be 
+ subject to change without notice. Confirm that you have received the latest product 
+ standards or specifications before final design, purchase or use. 
+ (21) PDI makes every attempt to ensure that its products are of high quality and reliability. 
+ However, contact PDI sales office before using the product in an application that 
+ demands especially high quality and reliability or where its failure or malfunction 
+ may directly threaten human life or cause risk of bodily injury, such as aerospace, 
+ aeronautics, nuclear power, combustion control, transportation, traffic, safety 
+ equipment or medical equipment for life support. 
+ (22) Design your application so that the product is used within the ranges guaranteed by 
+ PDI particularly for maximum rating, operating supply voltage range, heat radiation 
+ characteristics, installation conditions and other characteristics. PDI bears no 
+ responsibility for failure or damage when used beyond the guaranteed ranges. Even 
+ within the guaranteed ranges, consider normally foreseeable failure rates or failure 
+ modes in semiconductor devices and employ systemic measures such as fail safes, 
+ so that the equipment incorporating PDI product does not cause bodily injury, fire or 
+ other consequential damage due to operation of the PDI product. 
+ (23) This product is not designed to be radiation resistant. 
+ (24) Please keep R≧1.0mm when bend for assembly. 
+ R IC
+ ≧1
+ .
+ 0
+ m
+ m
+ FPC
+ TFT
+ 
+ 
+ 
+ 
+ 
+ Rev.: 01 Page: 28 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ 9 Definition of Labels 
+ 
+ Figure 9-1 Definition of Model Labels 
+ (28 Digits)
+ QR code
+ (8x8mm)
+ (Other information)
+ (25~28) Serial No.
+ (22~24) Manufacture Year/Month/Day
+ (19~21) Reserved code
+ (18) WF extended code
+ (12~17) FPL LOT No.
+ (2~11) Model name
+ (1) Manufacturer/Vendor code
+ 
+ Figure 9-2 Carton Label 
+ Bar Code=Model Name.+Carton Serial No.+Q'TY.(Code 128)
+ Model Name.
+ Carton Serial No. Q'TY.
+ (10 Digits)
+ (9 Digits) (3 Digits)
+ EXXXXXXXXX XXXXXXXXX Q'TY:XXX RoHS
+ Customs control information
+ FPL Lot No.(8 Digits)
+ Carton Label
+ 
+ 
+ 
+ Rev.: 01 Page: 29 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
+ Doc. No. 1P285-00 
+ Figure 9-3 Pallet Label 
+ Model Name.
+ (10 Digits)
+ EXXXXXXXXX
+ Pallet Serial No.
+ Q'TY.
+ CXXXXXX Q'TY:XXXXX
+ (7 Digits)
+ (5 Digits)
+ GW:XXXXKg RoHS
+ Weight.
+ PERVASIVEDISPLAYS
+ (10 Digits)
+ (5 Digits)
+ (7 Digits)
+ Bar Code=Model Name.+Pallet Serial No.+Q'TY.(22 Digits)
+ Pallet Label
+ 
+ Rev.: 01 Page: 30 of 30 Date: 2021/05/17 
+ This document is the exclusive property of PDI and shall not be reproduced or copied or transformed to any other format without 
+ prior permission of PDI. ( PDI Confidential ) 本資料為龍亭新技專有之財產，非經許可，不得複製、翻印或轉變成其他形式使用。 
