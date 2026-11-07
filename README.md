@@ -27,6 +27,8 @@ The row of WS2812-compatible LEDs is on GPIO38
 # Applications
 In its out of the box configuration the badge can show the 2026 Supercon schedule, act as a digital name tag, and cycle through a built-in collection of art from Hackaday's incredible Art Director Joe Kim. If you come up with additional apps that you'd like to share, feel free to make a pull request.
 
+Press Menu +/- to open the app menu, Menu +/- to pick an app, and User A or B to launch it. The badge remembers the last app launched from the menu (in `/data/last_app.json`) and starts it again at the next boot. Hold Menu + or Menu - while the badge boots to get the menu instead. To always boot into the menu, create `/data/boot.json` containing `{"resume": false}`.
+
 Community apps:
 * **Quick Draw** (`firmware/badge/apps/duel.py`): a two-player reaction duel. A and B are the players; wait for the LED bar to flash green, then press first. First to 4 wins, and the e-paper shows a scoreboard with the all-time fastest draws.
 
