@@ -60,8 +60,8 @@ class AppSwitcher:
             if appmod_name in APPMOD_DENYLIST:
                 continue
             try:
-                __import__("apps." + appmod_name)
-                appmod = sys.modules["apps." + appmod_name]
+                __import__(f"apps.{appmod_name}")
+                appmod = sys.modules[f"apps.{appmod_name}"]
             except Exception as exc:
                 print(f"Failed to import app module: apps.{appmod_name}")
                 sys.print_exception(exc)
@@ -84,8 +84,8 @@ class AppSwitcher:
 
         # Modules and classes are found in an arbitrary order, so sort them.
         # Menu actions (e.g. the Bluetooth toggle) go after all the apps.
-        def menu_position(app):
-            if getattr(app, "menu_action", False):
+        def menu_position(app: BaseApp) -> tuple:
+            if app.menu_action:
                 return (len(APP_ORDER) + 1, app.name)
             if app.name in APP_ORDER:
                 return (APP_ORDER.index(app.name), "")
@@ -108,7 +108,7 @@ class AppSwitcher:
 
         self._resume_last_app()
 
-    def _resume_last_app(self):
+    def _resume_last_app(self) -> None:
         """Start the last app launched from the menu instead of the menu.
         Hold Menu+ or Menu- during boot to get the menu instead; it opens with
         that app selected, matching what the e-paper still shows.
@@ -129,55 +129,57 @@ class AppSwitcher:
                     b._pressed_state = PRESSED_READ
             return
         try:
-            try:
-                with open(BOOT_CONFIG_FILE) as f:
-                    if json.load(f).get("resume", True) is False:
-                        return
-            except OSError:
-                pass  # no boot config, resume is on by default
-            if last_idx is None:
-                return
-            app = self.apps[last_idx]
-            print(f"Resuming {app.name}")
-            app.launched = True
-            self.selecting_mode = False
-        except Exception as exc:
-            print("Could not resume last app, showing menu")
-            sys.print_exception(exc)
+            with open(BOOT_CONFIG_FILE) as f:
+                boot = json.load(f)
+        except OSError:
+            boot = {}  # no boot config, resume is on by default
+        except ValueError as exc:
+            print(f"Ignoring {BOOT_CONFIG_FILE}: {exc}")
+            boot = {}
+        if isinstance(boot, dict) and boot.get("resume", True) is False:
+            return
+        if last_idx is None:
+            return
+        app = self.apps[last_idx]
+        print(f"Resuming {app.name}")
+        app.launched = True
+        self.selecting_mode = False
 
-    def _last_app_idx(self):
+    def _last_app_idx(self) -> int | None:
         """Menu index of the app saved in LAST_APP_FILE, or None."""
         try:
             with open(LAST_APP_FILE) as f:
                 last = json.load(f)
         except OSError:
             return None  # nothing launched yet
-        except Exception as exc:
-            print("Could not read last app")
-            sys.print_exception(exc)
+        except ValueError as exc:
+            print(f"Could not read {LAST_APP_FILE}: {exc}")
+            return None
+        if not isinstance(last, dict):
+            print(f"Ignoring {LAST_APP_FILE}: not a JSON object")
             return None
         for idx, app in enumerate(self.apps):
-            if app._app_module == last.get("module") and app.name == last.get("app"):
+            if (not app.menu_action and app._app_module == last.get("module")
+                    and app.name == last.get("app")):
                 return idx
         print(f"Last app {last} not found, showing menu")
         return None
 
-    def _save_last_app(self):
+    def _save_last_app(self) -> None:
         """Remember the active app. Only writes to flash when it changed."""
         app = self.apps[self.active_idx]
         last = {"module": app._app_module, "app": app.name}
         try:
-            try:
-                with open(LAST_APP_FILE) as f:
-                    if json.load(f) == last:
-                        return
-            except (OSError, ValueError):
-                pass
+            with open(LAST_APP_FILE) as f:
+                if json.load(f) == last:
+                    return
+        except (OSError, ValueError):
+            pass
+        try:
             with open(LAST_APP_FILE, "w") as f:
                 json.dump(last, f)
-        except Exception as exc:
-            print("Could not save last app")
-            sys.print_exception(exc)
+        except OSError as exc:
+            print(f"Could not save {LAST_APP_FILE}: {exc}")
 
     async def arun(self):
         while True:
@@ -198,7 +200,7 @@ class AppSwitcher:
                     )
                 if UserA.pressed() or UserB.pressed():
                     picked = self.apps[self.selection_idx]
-                    if getattr(picked, "menu_action", False):
+                    if picked.menu_action:
                         # Do it and stay in the menu; the current app and the
                         # screen are untouched
                         print(f"Menu action: {picked.name}")
@@ -208,6 +210,10 @@ class AppSwitcher:
                             print(f"{picked.name} action failed")
                             sys.print_exception(exc)
                         await aio.sleep_ms(ACTION_FEEDBACK_MS)
+                        # Taps made while the feedback showed are latched;
+                        # drop them so the action doesn't run again
+                        UserA.pressed()
+                        UserB.pressed()
                         continue
                     print(f"Switching to {picked.name}")
                     self.active_idx = self.selection_idx

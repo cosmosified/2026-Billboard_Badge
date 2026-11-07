@@ -122,10 +122,8 @@ def rainbow_show():
 
 
 class LogoApp(BaseApp):
-    def __init__(self, name: str | None = None) -> None:
-        self.name = "Cosmotronics"
-        self.sleep_ms = 100
-        self.launched = False
+    def __init__(self) -> None:
+        super().__init__("Cosmotronics")
 
     def run(self):
         if self.launched:
