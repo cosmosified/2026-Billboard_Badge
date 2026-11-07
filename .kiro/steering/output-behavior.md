@@ -99,9 +99,10 @@ a paste:
 ## Python
 
 Two kinds of Python live in this repo, with different rules:
-- **Badge code** (`firmware/badge/`) runs on MicroPython 1.24.1.
-- **Host tools** (`firmware/scripts/*.py`, `firmware/sim/sao_example.py`) run on CPython 3.10+
-  under `uv run`.
+- **Badge code** (`firmware/badge/`, and the badge-side test scripts `firmware/scripts/fast_refresh_demo.py`,
+  `ghost_compare.py`, `hold_test.py`, `check_filesystem.py`, run with `mpremote run`) runs on MicroPython 1.24.1.
+- **Host tools** (`firmware/scripts/update.py`, `copy_assets.py`, `led_demo.py`, the Python inside
+  `boot_test.sh`/`soft_reboot_test.sh`, `firmware/sim/sao_example.py`) run on CPython 3.10+ under `uv run`.
 
 ### Both
 - Double quotes. Line length up to 120 characters.

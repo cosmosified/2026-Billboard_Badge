@@ -16,14 +16,14 @@ OFF_COLOR = (8, 0, 0)
 class BluetoothToggle(BaseApp):
     menu_action = True
 
-    def __init__(self, name: str | None = None) -> None:
+    def __init__(self) -> None:
         super().__init__("Bluetooth")
 
-    def action(self):
+    def action(self) -> None:
         from lib import presence
         on = not presence.enabled()
         saved = presence.set_broadcast(on)
-        print("Bluetooth presence", "on" if on else "off", "" if saved else "(not saved)")
+        print(f"Bluetooth presence {'on' if on else 'off'}{'' if saved else ' (not saved)'}")
         if on:
             leds.fill(ON_COLOR)
         else:

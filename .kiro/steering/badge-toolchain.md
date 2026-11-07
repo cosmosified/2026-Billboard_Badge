@@ -1,7 +1,7 @@
 ---
 inclusion: auto
 name: badge-toolchain
-description: Billboard badge build, flash, and tooling reference. Use for flashing MicroPython images, rebuilding lv_micropython firmware, ESP-IDF, partitions, esptool, mpremote, update.py, boot test scripts, the desktop simulator, image conversion with ImageMagick, and repo/PR history.
+description: Billboard badge build, flash, and tooling reference. Use for flashing MicroPython images, rebuilding lv_micropython firmware, ESP-IDF, partitions, esptool, mpremote, uv, update.py, boot_test.sh, e-paper test scripts (fast_refresh_demo, ghost_compare, hold_test), the desktop simulator, image conversion with ImageMagick, and repo, branch and PR history of this fork.
 ---
 
 # Toolchain, flashing, simulator, history
@@ -12,15 +12,25 @@ description: Billboard badge build, flash, and tooling reference. Use for flashi
   (`npx lv_font_conv` for fonts), pygame (for `scripts/led_demo.py`).
 
 ## Scripts (`firmware/scripts/`, run from `firmware/`)
+Host-side (CPython, `uv run`):
 - `update.py [ls|push|pull] [--reset] [-v]`: SHA-256 diff of `firmware/badge/` vs the badge
   (via `check_filesystem.py` run on the badge). `push` copies new/changed files and deletes badge
   files not present locally (never `/data/*` or `__pycache__`). `pull` copies everything to
-  `firmware/badge-backup/`.
-- `boot_test.sh [secs]`: sets `load_counter` to 0, hard resets, prints timestamped serial output
-  (splash refresh). `soft_reboot_test.sh [secs]`: same via Ctrl-C/Ctrl-D.
+  `firmware/badge-backup/`. Without `--reset` the badge is left at the REPL with `main.py` stopped.
+- `boot_test.sh [secs=90]`: writes `{"load_counter": 0}` to `/data/panel_config.json` so the splash
+  shows, hard resets, and prints timestamped serial output. `soft_reboot_test.sh [secs]`: same via
+  Ctrl-C/Ctrl-D. Both use the first `/dev/cu.usbmodem*` (or `PORT=...`) and exit with a message if
+  no badge port exists. With resume on, expect a second refresh: the resumed app redraws.
 - `copy_assets.py`: remaps every `assets/graphics/*.png` into `firmware/badge/data/graphics/` with
   `palette.gif` (3 colors: FF0000, FFFFFF, 000000).
 - `led_demo.py`: pygame preview of LED sequences using the real `led_bar.py`.
+
+Badge-side (MicroPython; `uv run mpremote reset`, wait ~6 s, then
+`uv run mpremote soft-reset run scripts/<name>.py`):
+- `fast_refresh_demo.py`: one full refresh with a red box, then fast frames moving a black square.
+- `ghost_compare.py`: fast-refresh ghosting/color comparison; edit `PASSES` and `FULL_EVERY`.
+- `hold_test.py`: 10 fast frames with held black next to a freshly drawn square.
+- `check_filesystem.py`: run by `update.py` to list badge files and hashes.
 
 ## Image conversion
 `magick in.png -background white -alpha remove -alpha off -resize 960x672 -gravity center -extent 960x672 -remap scripts/palette.gif -strip out.png`
@@ -35,14 +45,15 @@ Add `-dither None` for flat art; the default Floyd-Steinberg dither suits photos
   then from `firmware/`: `uv run python scripts/update.py push --reset` (erase wipes the filesystem).
 - Full image restore (inferred): `uv run python -m esptool --chip esp32s3 write-flash 0x0 supercon26_factory.bin`.
 - Backup: `uv run python -m esptool --no-stub read-flash 0 8M backup.bin`.
-- Use 8MB. Some README lines and `lv_files/.../sdkconfig.board` say 16MB, but the partition table
-  ends at exactly 8 MB.
+- Use 8MB (`esptool flash-id` reports 8 MB; the partition table ends at exactly 8 MB). Only the
+  deprecated lvgl_micropython flash command in `firmware/README.md` and
+  `lv_files/boards/ESP32_GENERIC_S3/sdkconfig.board` (`FLASHSIZE_16MB`) still say 16MB.
 - Partitions: nvs 0x9000 (24 KB), phy_init 0xF000, factory 0x10000 (3 MB), vfs FAT 0x310000 (~4.9 MB).
 
 ## Rebuilding MicroPython + LVGL from source
 - The shipped binary is lv_micropython commit `44aa2b153` ("dirty"), MicroPython 1.24.1, ESP-IDF
-  v5.2.3 (from `strings micropython.bin`). README's "MicroPython 1.27" is stale. lv_micropython isn't
-  vendored; clone it yourself.
+  v5.2.3 (from `strings micropython.bin`; `firmware/README.md` now says so too). lv_micropython
+  isn't vendored; clone it yourself.
 1. Install ESP-IDF v5.2.3; `. ./export.sh` in the build shell.
 2. `git clone https://github.com/lvgl/lv_micropython firmware/lv_micropython && cd firmware/lv_micropython && git checkout 44aa2b153 && git submodule update --init --recursive`.
 3. Copy `firmware/lv_files/*` over `firmware/lv_micropython/` (adds the `BILLBOARD_BADGE` variant:
@@ -66,11 +77,19 @@ Add `-dither None` for flat art; the default Floyd-Steinberg dither suits photos
 - Different bindings from the badge (e.g. no `inv_p`), not speed- or RAM-accurate.
 
 ## This fork (github.com/cosmosified/2026-Billboard_Badge)
-- Remotes: `origin` = Hack-a-Day upstream, `fork` = cosmosified (SSH).
-- Merged and tested on hardware: upstream PRs #9 (soft-reset crash fix), #12 (sao.py), #2 (binfont,
+- Remotes: `origin` = Hack-a-Day upstream, `fork` = cosmosified (SSH). Work goes on a branch, then a
+  tracking PR on the fork, squash-merged into `main`.
+- Upstream PRs merged and tested on the badge: #9 (soft-reset crash fix), #12 (sao.py), #2 (binfont,
   plus a kerning fix), #13 (Life), #8 (Quick Draw), #7 (menu LED wrap past 48 apps), #11 (simulator +
-  fixes); Mandelbrot app from #6 without PR #4's driver.
-- Rejected: #4 and #3 (hardware SPI e-paper failure, see `badge-epaper.md`). #5 touched directories
-  deleted upstream.
-- Local additions: uv setup, Cosmo nametag, boot test scripts, Cosmotronics logo app with LED show.
-- `backup/merge-attempt-1` branch holds the first (abandoned) merge attempt.
+  fixes), #18 (resume last app, fork PR #6), #19 (owner.json nametag, fork PR #7), #21 (BLE
+  presence, fork PR #8); the Mandelbrot app from #6 without PR #4's driver.
+- Upstream maintainer commits cherry-picked (a76b08d): GPIO48 panel power on, 0x70 booster config,
+  BUSY wait on either half, `LedBar.set()` writes.
+- Rejected: #3 and #4 (hardware SPI e-paper failure, see `badge-epaper.md`); their viper split,
+  byte LUT and fast-refresh ideas were ported onto SoftSPI. #20 (app grid) not taken.
+- Fork work: uv setup, viper e-paper driver with queued updates (dfa823e), fast refresh (708105e),
+  fork PRs #1 button latch, #2 Mandelbrot non-blocking, #3 safe app import, #4 README fixes,
+  #5 fast-refresh hold-black, #9 Bluetooth menu toggle; Cosmotronics logo app; boot/e-paper test
+  scripts; this knowledge base and `output-behavior.md`.
+- `backup/merge-attempt-1` holds the first (abandoned) merge attempt. Feature branches are kept after
+  merging.

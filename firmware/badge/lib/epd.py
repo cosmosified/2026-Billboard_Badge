@@ -35,6 +35,7 @@ import gc
 from machine import Pin, SoftSPI
 import micropython
 from micropython import const
+import sys
 import time
 
 import lvgl
@@ -82,16 +83,16 @@ _IDENTITY_LUT = bytes(range(256))
 
 @micropython.viper
 def _split_plane(src: ptr8, left: ptr8, right: ptr8, lut: ptr8):
-    """Split a 120-byte-wide plane into the two 60-byte-wide halves sent to each
+    """Split a full-width plane into the two half-width planes sent to each
     CoG, mapping every byte through `lut` (bit reversal or identity)."""
     row = 0
-    while row < 672:
-        s = row * 120
-        d = row * 60
+    while row < display_height:
+        s = row * display_width_bytes
+        d = row * display_half_width_bytes
         c = 0
-        while c < 60:
+        while c < display_half_width_bytes:
             left[d + c] = lut[src[s + c]]
-            right[d + c] = lut[src[s + 60 + c]]
+            right[d + c] = lut[src[s + display_half_width_bytes + c]]
             c += 1
         row += 1
 
@@ -110,14 +111,16 @@ FAST_HOLD_BLACK = True
 
 @micropython.viper
 def _hold_black(black: ptr8, prev: ptr8, red: ptr8, out: ptr8, n: int):
-    """out = red | (black & prev): mark pixels black in both frames."""
+    """out = red | (black & prev): mark pixels black in both frames.
+    Apps keep the planes exclusive per pixel (LVGL and PNG drawing do), so a
+    pixel with both bits set here is always a held black pixel."""
     i = 0
     while i < n:
         out[i] = red[i] | (black[i] & prev[i])
         i += 1
 
 
-def _keep_red_lut(lut, group_size, groups):
+def _keep_red_lut(lut: bytes, group_size: int, groups: int) -> bytes:
     """Copy of a fast LUT with the red tables (2 and 3) replaced by idle
     groups, so red pixels get no drive. Table index is (red bit << 1) | bw bit;
     the idle group is the table's own last VCOM group (ground, one frame)."""
@@ -135,8 +138,8 @@ def _keep_red_lut(lut, group_size, groups):
 def _rgb565_to_planes(src: ptr8, stride: int, w: int, h: int, x1: int, y1: int,
                       black: ptr8, red: ptr8):
     """Convert an LVGL RGB565 (little-endian) area into the black/red planes.
-    Same color rule as before, by the top bit of each channel: red if R is set
-    and G, B clear; black if all clear; otherwise white."""
+    Color rule, by the top bit of each channel: red if R is set and G, B clear;
+    black if all clear; otherwise white."""
     row = 0
     while row < h:
         base = (y1 + row) * 960 + x1
@@ -244,19 +247,16 @@ class EPaperDisplay:
         except AttributeError:
             stride = w * 2
         src = color_p.__dereference__(stride * h)
-        try:
-            _rgb565_to_planes(src, stride, w, h, x1, y1,
-                              self._framebuffer_black, self._framebuffer_red)
-        except TypeError:
-            # In case this LVGL binding returns something viper can't point at
-            _rgb565_to_planes(bytes(src), stride, w, h, x1, y1,
-                              self._framebuffer_black, self._framebuffer_red)
+        _rgb565_to_planes(src, stride, w, h, x1, y1,
+                          self._framebuffer_black, self._framebuffer_red)
         disp.flush_ready()
 
-    def update(self, fast=False, keep_red=False, passes=None):
+    def update(self, fast: bool = False, keep_red: bool = False, passes: int | None = None) -> None:
         """Done updating the framebuffer, update the display with the contents.
 
         Returns right away; display.run() does the refresh in the background.
+        An update requested while a refresh runs is queued: one more refresh
+        follows, with the framebuffer contents and options at that time.
         - update():          full refresh on the panel's own waveform (~33 s).
                              The only mode that draws red well.
         - update(fast=True): short waveform from data/rendered_luts.py, ~7.7 s
@@ -264,9 +264,8 @@ class EPaperDisplay:
                              3 pulls). Same content updates as a full refresh;
                              it still flashes, three short times.
         - update(fast=True, keep_red=True): fast refresh that gives red pixels no
-                             drive. Tested on a B1 badge: red dims during these
-                             frames, and a plain fast refresh brings it back, so
-                             prefer plain fast=True.
+                             drive. On the B1 panel red dims over these frames,
+                             and a plain fast refresh restores it.
         `passes` overrides how many times the fast waveform is re-triggered.
         """
         self._request = (fast, keep_red, passes)
@@ -312,10 +311,13 @@ class EPaperDisplay:
                 # instead of being dropped.
                 self._framebuffer_ready.clear()
                 fast, keep_red, passes = self._request
+                # No fast waveform (missing data/rendered_luts.py) means a full
+                # refresh, which must not get the fast-only hold mask
+                wave = self._fast_lut(keep_red) if fast else None
                 tick = time.ticks_ms()
                 lut = _REVERSE_LUT if self._reverse_fb_bits else _IDENTITY_LUT
                 red = self._framebuffer_red
-                if fast and FAST_HOLD_BLACK and self._prev_black is not None:
+                if wave is not None and FAST_HOLD_BLACK and self._prev_black is not None:
                     if hold_red is None:
                         hold_red = bytearray(len(red))
                     _hold_black(self._framebuffer_black, self._prev_black, red,
@@ -329,7 +331,7 @@ class EPaperDisplay:
                     self._prev_black[:] = self._framebuffer_black
                 print("Split planes in", time.ticks_diff(time.ticks_ms(), tick), "ms")
                 await self.global_update(black_left, red_left, black_right, red_right,
-                                         fast, keep_red, passes)
+                                         wave, keep_red, passes)
                 gc.collect()
                 if self._framebuffer_ready.is_set():
                     print("Another update was requested during the refresh")
@@ -343,17 +345,21 @@ class EPaperDisplay:
         red_left: bytearray | bytes | memoryview[int],
         black_right: bytearray | bytes | memoryview[int],
         red_right: bytearray | bytes | memoryview[int],
-        fast=False,
-        keep_red=False,
-        passes=None,
+        wave: bytes | None = None,
+        keep_red: bool = False,
+        passes: int | None = None,
     ):
-        wave = self._fast_lut(keep_red) if fast else None
+        """Send the half planes and refresh: on the panel's OTP waveform when
+        `wave` is None, otherwise on `wave` (a fast LUT from _fast_lut())."""
         if wave is None:
             passes = 1
         elif passes is None:
             passes = FAST_PULLS_B if self._driver_b else FAST_PULLS_8
-        mode = ("fast x%d%s" % (passes, ", keep red" if keep_red else "")) if wave else "full"
-        print("Updating display to new image (%s)" % mode)
+        if wave is None:
+            mode = "full"
+        else:
+            mode = f"fast x{passes}{', keep red' if keep_red else ''}"
+        print(f"Updating display to new image ({mode})")
         await self._reset()
         tick = time.ticks_ms()
         self._send_images(black_left, red_left, black_right, red_right)
@@ -369,7 +375,7 @@ class EPaperDisplay:
             # before the DC/DC soft start.
             self._send_index_data(0xB0, wave)
         await self._dcdc_soft_start()
-        for _ in range(max(1, passes)):
+        for _ in range(passes):
             # Later passes re-trigger the latched waveform; nothing is resent.
             await self._display_refresh()
         await self._dcdc_soft_shutdown()
@@ -377,7 +383,7 @@ class EPaperDisplay:
         tock = time.ticks_ms()
         print(tock-tick)
 
-    def _fast_lut(self, keep_red):
+    def _fast_lut(self, keep_red: bool) -> bytes | None:
         """The short waveform for this panel (normal, keep-red), or None."""
         if self._fast_luts is None:
             try:
@@ -388,11 +394,12 @@ class EPaperDisplay:
                 else:
                     base = bytes(L.lut8_nored_clear)
                     self._fast_luts = (base, _keep_red_lut(base, 4, 9))
-                del L
-                gc.collect()
-            except Exception as ex:
-                print("EPD: no fast waveform (%s), using a full refresh" % ex)
+            except (ImportError, AttributeError) as ex:
+                print(f"EPD: no fast waveform ({ex}), using a full refresh")
                 self._fast_luts = ()
+            # The module keeps every table as a list; only the bytes are needed
+            sys.modules.pop("data.rendered_luts", None)
+            gc.collect()
         if not self._fast_luts:
             return None
         return self._fast_luts[1 if keep_red else 0]

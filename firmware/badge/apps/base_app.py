@@ -15,6 +15,9 @@ class BaseApp:
     A/B calls action() and the badge stays in the menu (the screen isn't
     touched). Menu actions are listed after all the apps."""
 
+    _app_module = ""
+    """Module name in apps/, set by the app switcher; saved in /data/last_app.json"""
+
     def __init__(self, name: str | None = None) -> None:
         self.name = name or self.__class__.__name__
         self.sleep_ms = 100
@@ -42,7 +45,7 @@ class BaseApp:
         """Override this with your app behavior. Will be run in a while True loop."""
         pass
 
-    def action(self):
+    def action(self) -> None:
         """For menu_action entries: do the action. Show feedback on the LEDs;
         the menu waits ACTION_FEEDBACK_MS before it redraws them."""
         pass

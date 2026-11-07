@@ -4,6 +4,10 @@
 # Usage (from firmware/): sh scripts/soft_reboot_test.sh [seconds]
 SECS="${1:-90}"
 PORT="${PORT:-$(ls /dev/cu.usbmodem* 2>/dev/null | head -1)}"
+if [ -z "$PORT" ]; then
+    echo "No badge serial port (/dev/cu.usbmodem*). Plug in the badge or set PORT." >&2
+    exit 1
+fi
 MP="uv run mpremote"
 printf '{"load_counter": 0}' > /tmp/panel_config.json
 $MP cp /tmp/panel_config.json :/data/panel_config.json >/dev/null
@@ -23,7 +27,7 @@ line = b""
 while time.time() < end:
     try:
         chunk = s.read(256)
-    except Exception as e:
+    except serial.SerialException as e:
         print(f"[{time.time()-t0:5.1f}s] serial dropped: {e}")
         break
     for b in chunk:
