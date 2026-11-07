@@ -1,5 +1,6 @@
 """Mandelbrot Fractal Viewer for 2026 Billboard Badge"""
 
+import sys
 import time
 import micropython
 import asyncio as aio
@@ -115,25 +116,30 @@ class MandelbrotApp(BaseApp):
 
         t1 = time.ticks_ms()
         print(f"[Mandelbrot] Rendered math in {time.ticks_diff(t1, t0)} ms")
-        
-        # Trigger generic fast hardware update in lib/epd.py (handles Viper split, 20MHz SPI, and Red/Green LEDs)
-        display._display_updated.clear()
+        leds[0] = (0, 0, 0)
+        leds.write()
+
+        # Request a refresh and return; display.run() does it in the background.
+        # Not waiting keeps the menu responsive. If the user picks another mode
+        # while a refresh is running, the driver queues another refresh.
         display.update()
-        await display._display_updated.wait()
 
     async def arun(self):
-        if self.launched:
-            self.launched = False
-            await self.render()
-            return
-            
-        if UserB.pressed():
-            self.mode = (self.mode + 1) % self.modes_count
-            print(f"[Mandelbrot] Button B pressed -> Mode {self.mode}: {self.mode_names[self.mode]}")
-            await self.render()
-        elif UserA.pressed():
-            self.mode = (self.mode - 1) % self.modes_count
-            print(f"[Mandelbrot] Button A pressed -> Mode {self.mode}: {self.mode_names[self.mode]}")
-            await self.render()
-            
+        try:
+            if self.launched:
+                self.launched = False
+                await self.render()
+            elif UserB.pressed():
+                self.mode = (self.mode + 1) % self.modes_count
+                print(f"[Mandelbrot] Button B pressed -> Mode {self.mode}: {self.mode_names[self.mode]}")
+                await self.render()
+            elif UserA.pressed():
+                self.mode = (self.mode - 1) % self.modes_count
+                print(f"[Mandelbrot] Button A pressed -> Mode {self.mode}: {self.mode_names[self.mode]}")
+                await self.render()
+        except Exception as ex:
+            # Overriding arun() skips BaseApp's guard; an uncaught exception
+            # here would stop the app switcher.
+            print(f"{self.name} hit an exception {ex}")
+            sys.print_exception(ex)
         await aio.sleep_ms(self.sleep_ms)
