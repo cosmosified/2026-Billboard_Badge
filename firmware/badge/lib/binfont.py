@@ -313,7 +313,8 @@ def _load_kern(f, kern_start, glyph_id_format):
         elem_fmt = "B" if glyph_id_format == 0 else "H"
         raw_ids = f.read(pair_cnt * 2 * struct.calcsize(elem_fmt))
         flat = struct.unpack("<%d%s" % (2 * pair_cnt, elem_fmt), raw_ids)
-        pairs = list(zip(flat[0::2], flat[1::2]))
+        # MicroPython has no stepped slices (flat[0::2]), so pair by index
+        pairs = [(flat[i], flat[i + 1]) for i in range(0, len(flat), 2)]
         values = list(struct.unpack("<%db" % pair_cnt, f.read(pair_cnt)))
         return {
             "classes": False,
