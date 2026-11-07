@@ -33,6 +33,7 @@ import btree
 import framebuf
 import gc
 from machine import Pin, SoftSPI
+import micropython
 from micropython import const
 import time
 
@@ -72,6 +73,59 @@ def reverse_byte(byte: int) -> int:
     byte = (byte & 0xCC) >> 2 | (byte & 0x33) << 2
     byte = (byte & 0xAA) >> 1 | (byte & 0x55) << 1
     return byte
+
+
+# Byte lookup tables for _split_plane: bit-reversed (B1 panel) or unchanged (84 panel)
+_REVERSE_LUT = bytes(reverse_byte(b) for b in range(256))
+_IDENTITY_LUT = bytes(range(256))
+
+
+@micropython.viper
+def _split_plane(src: ptr8, left: ptr8, right: ptr8, lut: ptr8):
+    """Split a 120-byte-wide plane into the two 60-byte-wide halves sent to each
+    CoG, mapping every byte through `lut` (bit reversal or identity)."""
+    row = 0
+    while row < 672:
+        s = row * 120
+        d = row * 60
+        c = 0
+        while c < 60:
+            left[d + c] = lut[src[s + c]]
+            right[d + c] = lut[src[s + 60 + c]]
+            c += 1
+        row += 1
+
+
+@micropython.viper
+def _rgb565_to_planes(src: ptr8, stride: int, w: int, h: int, x1: int, y1: int,
+                      black: ptr8, red: ptr8):
+    """Convert an LVGL RGB565 (little-endian) area into the black/red planes.
+    Same color rule as before, by the top bit of each channel: red if R is set
+    and G, B clear; black if all clear; otherwise white."""
+    row = 0
+    while row < h:
+        base = (y1 + row) * 960 + x1
+        ro = row * stride
+        col = 0
+        while col < w:
+            i = ro + col * 2
+            c = src[i] | (src[i + 1] << 8)
+            idx = base + col
+            byte = idx >> 3
+            mask = 128 >> (idx & 7)
+            clear = mask ^ 255
+            bits = c & 0x8410  # R top bit 0x8000, G top bit 0x0400, B top bit 0x0010
+            if bits == 0x8000:
+                red[byte] = red[byte] | mask
+                black[byte] = black[byte] & clear
+            elif bits == 0:
+                black[byte] = black[byte] | mask
+                red[byte] = red[byte] & clear
+            else:
+                black[byte] = black[byte] & clear
+                red[byte] = red[byte] & clear
+            col += 1
+        row += 1
 
 
 class EPaperDisplay:
@@ -141,7 +195,6 @@ class EPaperDisplay:
         self.lv_screen.set_size(display_width, display_height)
 
     def _lv_flush(self, disp, area, color_p):
-        print("Calling EPaperDisplay._lv_flush")
         x1, y1 = area.x1, area.y1
         w = area.x2 - x1 + 1
         h = area.y2 - y1 + 1
@@ -150,29 +203,13 @@ class EPaperDisplay:
         except AttributeError:
             stride = w * 2
         src = color_p.__dereference__(stride * h)
-        width = display_width
-        for row in range(h):
-            base = (y1 + row) * width + x1
-            row_off = row * stride
-            for col in range(w):
-                i = row_off + col * 2
-                c = src[i] | (src[i + 1] << 8)  # RGB565, little-endian
-                r = (c >> 11) & 0x1F
-                g = (c >> 5) & 0x3F
-                b = c & 0x1F
-                idx = base + col
-                byte = idx >> 3
-                mask = 1 << (7 - (idx & 7))
-                clear = mask ^ 0xFF
-                if (r & 0x10) and not (g & 0x20) and not (b & 0x10):
-                    self._framebuffer_red[byte] |= mask
-                    self._framebuffer_black[byte] &= clear
-                elif not (r & 0x10) and not (g & 0x20) and not (b & 0x10):
-                    self._framebuffer_black[byte] |= mask
-                    self._framebuffer_red[byte] &= clear
-                else:
-                    self._framebuffer_black[byte] &= clear
-                    self._framebuffer_red[byte] &= clear
+        try:
+            _rgb565_to_planes(src, stride, w, h, x1, y1,
+                              self._framebuffer_black, self._framebuffer_red)
+        except TypeError:
+            # In case this LVGL binding returns something viper can't point at
+            _rgb565_to_planes(bytes(src), stride, w, h, x1, y1,
+                              self._framebuffer_black, self._framebuffer_red)
         disp.flush_ready()
 
     def update(self):
@@ -213,41 +250,21 @@ class EPaperDisplay:
         while True:
             if self._framebuffer_ready.is_set():
                 self._display_updated.clear()
-                fbk = memoryview(self._framebuffer_black)
-                fbr = memoryview(self._framebuffer_red)
-                for row in range(display_height):
-                    black_left[
-                        row * display_half_width_bytes : (row + 1)
-                        * display_half_width_bytes
-                    ] = fbk[
-                        row * display_width_bytes : row * display_width_bytes
-                        + display_half_width_bytes
-                    ]
-                    black_right[
-                        row * display_half_width_bytes : (row + 1)
-                        * display_half_width_bytes
-                    ] = fbk[
-                        row * display_width_bytes + display_half_width_bytes : (row + 1)
-                        * display_width_bytes
-                    ]
-                    red_left[
-                        row * display_half_width_bytes : (row + 1)
-                        * display_half_width_bytes
-                    ] = fbr[
-                        row * display_width_bytes : row * display_width_bytes
-                        + display_half_width_bytes
-                    ]
-                    red_right[
-                        row * display_half_width_bytes : (row + 1)
-                        * display_half_width_bytes
-                    ] = fbr[
-                        row * display_width_bytes + display_half_width_bytes : (row + 1)
-                        * display_width_bytes
-                    ]
-                await self.global_update(black_left, red_left, black_right, red_right)
+                # Clear before copying the framebuffers: an update() requested
+                # while this refresh runs then triggers another refresh,
+                # instead of being dropped.
                 self._framebuffer_ready.clear()
+                tick = time.ticks_ms()
+                lut = _REVERSE_LUT if self._reverse_fb_bits else _IDENTITY_LUT
+                _split_plane(self._framebuffer_black, black_left, black_right, lut)
+                _split_plane(self._framebuffer_red, red_left, red_right, lut)
+                print("Split planes in", time.ticks_diff(time.ticks_ms(), tick), "ms")
+                await self.global_update(black_left, red_left, black_right, red_right)
                 gc.collect()
-                self._display_updated.set()
+                if self._framebuffer_ready.is_set():
+                    print("Another update was requested during the refresh")
+                else:
+                    self._display_updated.set()
             await aio.sleep_ms(100)
 
     async def global_update(
@@ -400,11 +417,7 @@ class EPaperDisplay:
         assert len(black_right) == half_frame_one_color_size
         assert len(red_right) == half_frame_one_color_size
 
-        if self._reverse_fb_bits:
-            black_left = bytes(reverse_byte(b) for b in black_left)
-            red_left = bytes(reverse_byte(b) for b in red_left)
-            black_right = bytes(reverse_byte(b) for b in black_right)
-            red_right = bytes(reverse_byte(b) for b in red_right)
+        # Bit order for the panel variant was already applied by _split_plane in run()
 
         # DUW for both left and right halves
         self._send_index_data(0x13, [0x00, 0x3B, 0x00, 0x00, 0x9F, 0x02])
