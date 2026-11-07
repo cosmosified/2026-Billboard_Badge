@@ -32,6 +32,8 @@ LAST_APP_FILE = "/data/last_app.json"
 """Remembers the last app launched from the menu so it can be resumed at boot"""
 BOOT_CONFIG_FILE = "/data/boot.json"
 """Optional. {"resume": false} always starts in the menu"""
+ACTION_FEEDBACK_MS = 1200
+"""How long a menu action's LED feedback shows before the menu redraws"""
 
 
 class AppSwitcher:
@@ -80,8 +82,11 @@ class AppSwitcher:
                 print(f"Failed to load app module: {appmod}")
                 sys.print_exception(exc)
 
-        # Modules and classes are found in an arbitrary order, so sort them
+        # Modules and classes are found in an arbitrary order, so sort them.
+        # Menu actions (e.g. the Bluetooth toggle) go after all the apps.
         def menu_position(app):
+            if getattr(app, "menu_action", False):
+                return (len(APP_ORDER) + 1, app.name)
             if app.name in APP_ORDER:
                 return (APP_ORDER.index(app.name), "")
             return (len(APP_ORDER), app.name)
@@ -192,7 +197,19 @@ class AppSwitcher:
                         f"Selected app {self.selection_idx}: {self.apps[self.selection_idx].name}"
                     )
                 if UserA.pressed() or UserB.pressed():
-                    print(f"Switching to {self.apps[self.selection_idx].name}")
+                    picked = self.apps[self.selection_idx]
+                    if getattr(picked, "menu_action", False):
+                        # Do it and stay in the menu; the current app and the
+                        # screen are untouched
+                        print(f"Menu action: {picked.name}")
+                        try:
+                            picked.action()
+                        except Exception as exc:
+                            print(f"{picked.name} action failed")
+                            sys.print_exception(exc)
+                        await aio.sleep_ms(ACTION_FEEDBACK_MS)
+                        continue
+                    print(f"Switching to {picked.name}")
                     self.active_idx = self.selection_idx
                     self.apps[self.active_idx].launched = True
                     self._save_last_app()
