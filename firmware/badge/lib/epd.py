@@ -243,6 +243,10 @@ class EPaperDisplay:
         # Is the display done updating? Start set since the display is not updating before boot.
         self._display_updated = aio.Event()
         self._display_updated.set()
+
+        self.overlay = None
+        """Stamped over each frame as it's sent, without touching the app's image.
+        Needs wanted(), draw(black, red), and a byte-aligned x, y, w, h area."""
         gc.collect()
 
         # Set up lvgl (deinit first if soft-rebooted so C pointers don't corrupt)
@@ -345,6 +349,44 @@ class EPaperDisplay:
         """Is the display done updating?"""
         return self._display_updated.is_set()
 
+    def is_busy(self) -> bool:
+        """Is a frame waiting to be sent, or being sent, to the panel?"""
+        return self._framebuffer_ready.is_set() or not self.is_done_updating()
+
+    def _overlay_rows(self, overlay):
+        """Yield each row of the overlay's area as (framebuffer, start offset)"""
+        for fb in (self._framebuffer_black, self._framebuffer_red):
+            for row in range(overlay.y, overlay.y + overlay.h):
+                yield fb, row * display_width_bytes + overlay.x // 8
+
+    def _stamp_overlay(self) -> bytearray | None:
+        """Draw the overlay, returning what it covered for _restore_overlay()"""
+        overlay = self.overlay
+        if overlay is None or not overlay.wanted():
+            return None
+        width = overlay.w // 8
+        saved = bytearray(2 * width * overlay.h)
+        saved_view = memoryview(saved)
+        i = 0
+        for fb, offset in self._overlay_rows(overlay):
+            saved_view[i : i + width] = memoryview(fb)[offset : offset + width]
+            i += width
+        try:
+            overlay.draw(self.black, self.red)
+        except Exception as ex:
+            # A failed overlay shouldn't take the whole display down with it
+            sys.print_exception(ex)
+        return saved
+
+    def _restore_overlay(self, saved: bytearray) -> None:
+        overlay = self.overlay
+        width = overlay.w // 8
+        saved_view = memoryview(saved)
+        i = 0
+        for fb, offset in self._overlay_rows(overlay):
+            memoryview(fb)[offset : offset + width] = saved_view[i : i + width]
+            i += width
+
     def draw_image(self, image, height: int, width: int, row: int = 0, col: int = 0):
         for img_r in range(height):
             for img_c in range(width):
@@ -354,16 +396,18 @@ class EPaperDisplay:
                 self.black.pixel((col + img_c), (row + img_r), int(black))
                 self.red.pixel((col + img_c), (row + img_r), int(red))
 
-    def draw_png(self, filename: str, row: int = 0, col: int = 0,
+    def draw_png(self, source: str | bytes, row: int = 0, col: int = 0,
                  grayscale: bool = False, mixed: bool = False) -> None:
-        """Draw a PNG; use the same grayscale/mixed mode in update()."""
+        """Draw a PNG from a file path or from PNG bytes; use the same
+        grayscale/mixed mode in update()."""
         self._check_modes(grayscale, mixed)
         gc.collect()
         self._png_blink = not self._png_blink
         leds[0] = (0, 0, 50) if self._png_blink else (0, 0, 10)
         leds.write()
-        print(f"Loading {filename} This will take a while... {time.time()}")
-        show_png(filename, self._framebuffer_black, self._framebuffer_red, row, col, grayscale, mixed)
+        what = source if isinstance(source, str) else f"{len(source)} bytes of PNG data"
+        print(f"Loading {what} This will take a while... {time.time()}")
+        show_png(source, self._framebuffer_black, self._framebuffer_red, row, col, grayscale, mixed)
         leds[0] = (0, 0, 0)
         leds.write()
         print("Done loading png")
@@ -395,6 +439,9 @@ class EPaperDisplay:
                 # refresh, which must not get the fast-only hold mask
                 wave = self._fast_lut(keep_red) if fast else None
                 tick = time.ticks_ms()
+                # No awaits until the restore below, so no app sees the stamped
+                # image; the hold mask and _prev_black include it, as the panel will
+                overlay_saved = self._stamp_overlay()
                 # The gray helpers only combine planes byte by byte, so they
                 # work on the panel-order planes from _split_plane too.
                 lut = _REVERSE_LUT if self._reverse_fb_bits else _IDENTITY_LUT
@@ -415,6 +462,8 @@ class EPaperDisplay:
                     self._prev_black = bytearray(self._framebuffer_black)
                 else:
                     self._prev_black[:] = self._framebuffer_black
+                if overlay_saved is not None:
+                    self._restore_overlay(overlay_saved)
                 print("Split planes in", time.ticks_diff(time.ticks_ms(), tick), "ms")
                 if mixed:
                     from lib.epd_grayscale import mixed_update

@@ -1,2 +1,5 @@
 .venv/
 __pycache__/
+
+# Wi-Fi credentials for apps/http_poller.py; keep them on the badge only
+firmware/badge/data/wlan_credentials.json
