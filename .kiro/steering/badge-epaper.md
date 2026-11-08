@@ -55,16 +55,17 @@ description: Billboard badge e-paper panel deep dive. Use when changing lib/epd.
 - Panel power: `EPD_PWR_EN_PIN = Pin(48, OUT, value=False)` drives the active-low P-FET on at import
   and nothing turns it off. `cog_poweroff()` exists but is never called.
 
-## Timing on this badge (SoftSPI 8 MHz, measured 2026-11-07)
+## Timing on this badge (hardware SPI 20 MHz, measured 2026-11-07)
 | Stage | Time | Blocks event loop |
 |---|---|---|
 | poll latency | 0-100 ms | no |
-| plane split (viper) | 33-40 ms (313 ms on the first refresh after boot) | yes |
+| plane split (viper) | 33-70 ms (313 ms on the first refresh after boot) | yes |
 | reset + 0x70 | ~0.63 s | no |
-| send planes | ~1.2-1.5 s | yes |
+| send planes | ~95 ms (SoftSPI fallback: ~1.2-1.5 s) | yes |
 | CoG init | ~1.4 s | no |
-| full waveform | ~32.8 s | no |
-| fast frame, total | ~7.6 s (3 pulls, ~3.5 s of waveform) | no, except the send |
+| full waveform | ~32.7 s | no |
+| full refresh, `update()` to done | ~34 s | no, except split and send |
+| fast frame, total | ~6.6 s (3 pulls, ~3.5 s of waveform) | no, except split and send |
 | LVGL full-screen flush (viper) | ~0.5 s | yes |
 
 ## Fast refresh
@@ -77,7 +78,8 @@ description: Billboard badge e-paper panel deep dive. Use when changing lib/epd.
   also get the red bit (table 3, no drive). `_prev_black` (80 KB) is updated on every refresh, full
   or fast; the scratch plane `hold_red` (80 KB) is allocated on the first fast refresh.
 - `keep_red=True` replaces tables 2 and 3 with idle groups (`_keep_red_lut`).
-- Results on this B1 badge (photos IMG_0604-0610, 2026-11-07):
+- Results on this B1 badge (photos IMG_0604-0610, 2026-11-07, measured on SoftSPI; frame times are
+  ~1 s shorter on hardware SPI):
 
 | Setting | Result |
 |---|---|
@@ -89,18 +91,24 @@ description: Billboard badge e-paper panel deep dive. Use when changing lib/epd.
 | 10 fast frames held | black from the last full refresh stays neutral black |
 | new black from a fast frame | slightly warm (maroon-ish) |
 
-- Guidance for apps: use `fast=True` for frequent updates (games, counters, Life). Do a full refresh
+- Guidance for apps: use `fast=True` for frequent updates (games, counters). Do a full refresh
   periodically or when idle to restore neutral black and clean red. Don't use `keep_red`.
 - Test scripts: `scripts/fast_refresh_demo.py`, `ghost_compare.py` (edit `PASSES`, `FULL_EVERY`),
   `hold_test.py`. Run with `uv run mpremote reset`, wait ~6 s, then
   `uv run mpremote soft-reset run scripts/<name>.py`. Each prints `RESULT <label> <ms>` lines.
 
-## Hardware SPI: failed experiment
-- Upstream PR #3 (SPI(1) at 8 MHz) and PR #4 (SPI(1) at 20 MHz) send the planes over hardware SPI.
-  On this badge the refresh then "completes" in ~1.9-3.6 s with BUSY asserted for only ~0.2-0.6 s
-  and the screen unchanged. PR #4 worked on some hard-reset boots and failed later, so the failure
-  is intermittent. This was tested before the GPIO48 and 0x70 fixes; it has not been retested since.
-- The iTC97 app note uses hardware SPI at 4 MHz for planes and bitbanged ~50 kHz for registers.
-  Untested ideas: lower baud, registers on SoftSPI and only the planes on SPI, a logic analyzer
-  check of SPI mode and CS timing.
-- Test any driver change with `sh scripts/boot_test.sh 60` and look for ~33 s after "display working".
+## SPI bus
+- `EPaperDisplay.__init__` uses hardware `SPI(1)` at 20 MHz (from upstream #4, merged in fork PR #11)
+  and falls back to `SoftSPI` at 8 MHz only if the constructor raises. `display.spi` shows which one
+  is in use. Registers and planes both go over the same bus.
+- Soft-reset trap: after a soft reset (Ctrl-C then Ctrl-D, `mpremote run`, `mpremote soft-reset
+  run`, Thonny), a plain `SPI(1, ...)` raises nothing but writes nothing: the refresh "finishes" with
+  ~1.8 s of waveform and the screen is unchanged. A hard reset works. The driver therefore constructs
+  `SPI(1, ...)`, deinits it, and constructs it again (commit 3c3c079). `SPI(1).deinit()` without the
+  pins does not fix it. Reported upstream as issue #25.
+- Likely cause (speculation, not checked in the MicroPython source): the ESP32 port skips re-init when
+  the settings match the previous session, but the soft reset already reset the GPIO matrix.
+- Earlier failures of PRs #3 and #4 on this badge (refresh "done" in ~1.9-3.6 s) were probably this
+  trap, since the tests ran through `mpremote` (inferred; not re-tested on the old code).
+- Test any driver change both ways: `sh scripts/boot_test.sh 60` (hard reset) and
+  `sh scripts/soft_reboot_test.sh 60` (Ctrl-C/Ctrl-D). A pass is ~33 s after "display working".

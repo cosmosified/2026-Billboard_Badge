@@ -57,9 +57,10 @@ LVGL extras present: canvas, chart, image, qrcode, barcode, lodepng, tjpgd, `bin
   is constructed with no arguments. Importing another app's class into your module creates a
   duplicate.
 - Menu order: `APP_ORDER = ["Workshops","Sat Talks","Sun Talks","Gallery","Nametag"]`, then other
-  apps sorted by name, then menu actions. Current menu (10 entries): Workshops, Sat Talks, Sun Talks,
-  Gallery, Nametag, Cosmotronics, Life, Mandelbrot, Quick Draw, Bluetooth. Page 2 holds Quick Draw
-  (LED 1) and Bluetooth (LED 2), in a different page color.
+  apps sorted by name, then menu actions. Current menu (9 entries): Workshops, Sat Talks, Sun Talks,
+  Gallery, Nametag, Cosmotronics, Mandelbrot, Quick Draw, Bluetooth. Page 2 holds Bluetooth (LED 1),
+  in a different page color. Community apps live in `user_apps/` (Life, KITT) and only appear once
+  copied into `/apps/` on the badge.
 - Boot: the badge resumes the last app launched from the menu (`/data/last_app.json`, matched by
   module and app name). It shows the menu instead when a Menu button is held at boot,
   `/data/boot.json` has `"resume": false`, or there is no valid saved app. The menu then opens with
@@ -123,7 +124,7 @@ Deploy: `uv run python scripts/update.py push --reset` from `firmware/`.
   `line`, `text` (8x8), `blit`, `ellipse`, `poly`).
 - `clear()`: both planes to white (doesn't touch LVGL).
 - `update(fast=False, keep_red=False, passes=None)`: request a refresh; returns immediately.
-  Full: ~36 s, the only good red. `fast=True`: ~7.6 s, black/white, 3 short flashes. Requests made
+  Full: ~34 s, the only good red. `fast=True`: ~6.6 s, black/white, 3 short flashes. Requests made
   during a refresh are merged into one more refresh using the last options and the framebuffer at
   that time. See `badge-epaper.md` for fast-refresh results and guidance.
 - Busy check: `display._framebuffer_ready.is_set() or not display.is_done_updating()`.
@@ -225,21 +226,22 @@ Deploy: `uv run python scripts/update.py push --reset` from `firmware/`.
 - `nametag.py`: `hello_i_am_blank.png` + LVGL plate with `maker_handle` and `nametag_line2` from
   `/data/owner.json` (re-read on each launch), auto-fitted from Montserrat 48 down to 16 in the band
   y=221-557. Two lines share one font size. Without a handle the sticker stays blank.
-- `game_of_life.py` (Life): A cell size, B new board, Boot pause. Correct "display busy" check.
-  Uses full refreshes (a candidate for `fast=True`).
+- `user_apps/game_of_life_hunter/game_of_life.py` (Life, not installed by default): A cell size,
+  B new board, Boot pause. Correct "display busy" check. Uses full refreshes (a candidate for
+  `fast=True`). `user_apps/kitt/kitt.py`: image + Larson scanner on the LEDs.
 - `duel.py` (Quick Draw): two-player reaction game, state machine, LED-only gameplay, pixtext
   scoreboard, hall of fame in `/data/duel_scores.json`.
 - `mandelbrot.py`: viper fixed-point fractal written straight into the framebuffers, computed in
   chunks with awaits; A/B cycle 4 color modes; requests the refresh without waiting; overrides
   `arun` with its own exception guard.
-- `logo.py` (Cosmotronics): full-screen dithered PNG + random rainbow LED show (6 effects, random
-  brightness 20-50, switching every 4-9 s).
+- `logo.py` (Cosmotronics): full-screen CT emblem PNG (flat 3-color, conversion command in the
+  docstring) + random rainbow LED show (6 effects, random brightness 20-50, switching every 4-9 s).
 - `bluetooth.py` (Bluetooth, menu action): toggles BLE presence; all 8 LEDs blue = on, one dim red
   LED = off.
 - `template.py`: skeleton (copy to a new name).
 
 ## Performance and memory
-- Blocking: PNG decode (about a second full screen), plane split ~33-40 ms, SoftSPI send ~1.2-1.5 s,
+- Blocking: PNG decode (about a second full screen), plane split ~33-70 ms, SPI send ~95 ms,
   LVGL full-screen flush ~0.5 s, heavy app compute. Non-blocking: reset, CoG init and the waveform
   (~33 s full, ~3.5 s fast).
 - Resident: LVGL draw buffer 1.29 MB, framebuffers 2 x 80 KB, refresh half-buffers 4 x 40 KB,
