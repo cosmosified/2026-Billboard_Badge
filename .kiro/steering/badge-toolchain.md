@@ -93,9 +93,13 @@ Add `-dither None` for flat art; the default Floyd-Steinberg dither suits photos
   and the new CT emblem logo.
 - Upstream wants community apps in `user_apps/<name>/`, installed by hand with `mpremote cp`. Since
   the sync, Life and KITT are not in `firmware/badge/apps/`, so not in the menu.
-- Open upstream PRs not merged as a whole (as of 2026-11-07): #3 (Etch-A-Sketch + input/fast-refresh
-  changes), #6 (only its Mandelbrot app is in), #15 (battery indicator), #20 (app grid), #22 (gray
-  support), #23 (text smoothing).
+- Upstream `main` 87a635e (gray support #22) merged on `sync/upstream-gray` (2026-11-08): `epd.py`
+  kept the fork driver and dispatches gray/mixed refreshes to upstream's `lib/epd_grayscale.py`;
+  README kept the fork's Menu GPIO line and owner/presence sections.
+- Open upstream PRs not merged as a whole (as of 2026-11-08): #3 (Etch-A-Sketch + input/fast-refresh
+  changes), #6 (only its Mandelbrot app is in), #15 (battery indicator), #20 (app grid), #23 (text
+  smoothing), #26 (HTTP poller; edits `epd.py`, ships `data/wlan_credentials.json`), #27 (Photo
+  Upload over Wi-Fi, `user_apps/`), #29 (Spiral partial-refresh screensaver, `user_apps/`).
 - Fork work: uv setup, viper e-paper driver with queued updates (dfa823e), fast refresh (708105e),
   fork PRs #1 button latch, #2 Mandelbrot non-blocking, #3 safe app import, #4 README fixes,
   #5 fast-refresh hold-black, #9 Bluetooth menu toggle; Cosmotronics logo app; boot/e-paper test

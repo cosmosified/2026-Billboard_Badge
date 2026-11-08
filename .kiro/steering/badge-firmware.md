@@ -123,10 +123,12 @@ Deploy: `uv run python scripts/update.py push --reset` from `firmware/`.
   planes = white. Keep the planes exclusive per pixel. All framebuf methods work (`fill_rect`,
   `line`, `text` (8x8), `blit`, `ellipse`, `poly`).
 - `clear()`: both planes to white (doesn't touch LVGL).
-- `update(fast=False, keep_red=False, passes=None)`: request a refresh; returns immediately.
-  Full: ~34 s, the only good red. `fast=True`: ~6.6 s, black/white, 3 short flashes. Requests made
-  during a refresh are merged into one more refresh using the last options and the framebuffer at
-  that time. See `badge-epaper.md` for fast-refresh results and guidance.
+- `update(fast=False, keep_red=False, passes=None, grayscale=False, mixed=False)`: request a refresh;
+  returns immediately. Full: ~34 s, the only good red. `fast=True`: ~6.6 s, black/white, 3 short
+  flashes. `grayscale=True` / `mixed=True` (B1 only, ~47-49 s, not with `fast`): draw first with
+  `display.refresh_lvgl(grayscale=...)` or `draw_png(path, grayscale=...)` in the same mode. Requests
+  made during a refresh are merged into one more refresh using the last options and the framebuffer
+  at that time. See `badge-epaper.md` for fast-refresh and gray details.
 - Busy check: `display._framebuffer_ready.is_set() or not display.is_done_updating()`.
   `is_done_updating()` alone is still True for up to 100 ms after `update()`.
 - `await display._display_updated.wait()`: wait for a refresh (and any queued one) to finish.

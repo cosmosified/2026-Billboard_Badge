@@ -34,7 +34,8 @@ Detailed knowledge (loaded on demand):
 ## Rules that bite
 - Full refresh: ~34 s end to end (0.6 s reset, ~0.1 s blocking send, 1.4 s CoG init, ~33 s
   waveform). `display.update(fast=True)`: ~6.6 s, 3 short flashes, black stays black with the
-  hold-black fix; red needs a full refresh. No partial (windowed) refresh exists.
+  hold-black fix; red needs a full refresh. No windowed refresh in `lib/epd.py`. Gray (B1 only):
+  `update(grayscale=True)` or `mixed=True`, ~47-49 s, no fast variant (`badge-epaper.md`).
 - `display.update()` only sets an event; `display.run()` does the work. An update requested during a
   refresh is queued (one more refresh follows), not dropped.
 - The e-paper uses hardware SPI(1) at 20 MHz (`lib/epd.py`). After a soft reset the bus must be

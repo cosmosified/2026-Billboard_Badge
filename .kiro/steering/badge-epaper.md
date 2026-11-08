@@ -13,7 +13,8 @@ description: Billboard badge e-paper panel deep dive. Use when changing lib/epd.
 - 960x672 at 121 dpi, black/white/red (Spectra Red R2.0), operating 0-40 C.
 - Dual CoG: master (left 480 columns, CS1/BUSY1) and slave (right, CS2/BUSY2). BUSY is low while busy.
 - Spec refresh time (B/W/R, 25 C): 31.2 s typical. Measured on this badge: 32.6-33.8 s.
-- No partial (windowed) update. The window bytes come from OTP and are forwarded verbatim.
+- No windowed refresh in `lib/epd.py`; the window bytes come from OTP and are forwarded verbatim.
+  Upstream PR #29 shows a whole-panel "partial" technique (see "Partial refresh" below).
 - Docs: `documentation/1P285_00_01_E2969JS0B1_20210517.pdf` (spec),
   `FlyerE2969JS0B120201013.pdf`, `itc97-driver-reference.pdf` and `itc97-driver-sheets.pdf`
   (driver application note for an ESP32-S3 iTC97 driver). Extracted text is in
@@ -112,3 +113,37 @@ description: Billboard badge e-paper panel deep dive. Use when changing lib/epd.
   trap, since the tests ran through `mpremote` (inferred; not re-tested on the old code).
 - Test any driver change both ways: `sh scripts/boot_test.sh 60` (hard reset) and
   `sh scripts/soft_reboot_test.sh 60` (Ctrl-C/Ctrl-D). A pass is ~33 s after "display working".
+
+## Gray (upstream #22, merged in the fork 2026-11-08)
+- B1 only (`display.supports_grayscale`). Code in `lib/epd_grayscale.py`; `lib/epd.py` dispatches to
+  it from `run()`. No fast variant: `update(fast=True, grayscale=True)` raises `ValueError`.
+- `update(grayscale=True)`: plane bits mean 00 white, 01 black (black plane), 10 gray (red plane);
+  11 is rejected. Sequence: a full white refresh first unless `_panel_monochrome` (the last full
+  refresh had no red), then the custom waveform (B1 `lutb_base` with slot 2 copied from slot 1) on a
+  white image with 6 pulls, then the real image with 3 pulls.
+- `update(mixed=True)`: 00 white, 01 black, 10 red, 11 gray. A normal full refresh with gray sites
+  made white, then gray passes that hold every other pixel (table 3).
+- Draw with the same mode: `display.refresh_lvgl(grayscale=...)` / `mixed=` (LVGL green channel
+  < 96 black, < 204 gray, else white) or `display.draw_png(path, grayscale=..., mixed=...)`.
+- Fork-specific: planes are split and bit-reversed as usual (the gray helpers only combine planes
+  byte by byte), and after a gray or mixed refresh `_prev_black` is dropped, so the next fast frame
+  has no hold-black mask.
+- Measured (2026-11-08, `scripts/gray_test.py` after a soft reset): grayscale 49.1 s (includes the
+  white clear), mixed 47.3 s, the following fast frame 7.1 s. All three frames confirmed by eye.
+
+## Partial refresh (upstream PR #29, Spiral screensaver, not merged; read, not tested)
+- Not windowed: a whole-panel fast waveform where pixels that don't change get table 0 (ground, no
+  drive). A windowed mode (narrowing DUW 0x13, RAM_RW 0x12 and DRFW 0x90 in y) exists in its code but
+  Spiral doesn't use it; narrowing in x doesn't work on this panel (the data wraps).
+- "Persistent booster" session: the first step does the full sequence (reset, 0xA7 OTP load,
+  0x45 = 0x84, 0xB0 custom LUT, soft start); each later step only rewrites the planes
+  (0x13/0x90/0x12/0x10/0x11) and sends 0x15 = 0x3C. It skips reset, OTP load, LUT write, soft start
+  and shutdown. The session closes after 10 s idle. One LUT per session.
+- LUT: 10 groups of 2 frames; the pixel's table index (red << 1 | bw) picks the rail directly
+  (0 GND, 1 VDH black, 2 VDL white, 3 VDHR red), so the planes are drive commands, not colors.
+- Claimed ~0.65 s per step (code comment, unverified); our notes say each 0x15 on driver B runs a
+  fixed ~1 s. Pixels left at ground relax over many passes (black toward gray); no periodic full
+  refresh in Spiral.
+- Not usable as-is in this fork (inferred): it monkey-patches `EPaperDisplay.global_update` with an
+  upstream signature, and deinits and rebuilds `SPI(1)` per plane, which risks the soft-reset SPI
+  trap above. It needs exclusive use of the panel while a session is open.
