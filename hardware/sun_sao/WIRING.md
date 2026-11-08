@@ -40,7 +40,7 @@ Measured from the photos; beep it with a meter before soldering (step 1 below).
 |---|---|---|
 | Adafruit Qwiic / STEMMA QT Breakout (#5961) | SDA H2, SCL I2, GND J2, VIN K2 | QT socket toward the top edge. A STEMMA QT cable runs to the LTR390 (#4831), which can sit anywhere the sun reaches. |
 | Seeed Grove Loudness v0.9b | GND B10, VCC C10, NC D10, SIG E10 | Desolder its Grove connector. Those holes are 2.0 mm pitch, so a 2.54 mm header won't drop in: solder short wires (or a header with splayed legs) from its SIG/NC/VCC/GND holes to B10-E10. NC unused. |
-| DFRobot SEN0570 smoke | GND L10, A M10, VCC N10 | Faces out for airflow. |
+| DFRobot SEN0570 smoke | GND L10, VCC M10, A N10 | Faces out for airflow. Its header order is GND, VCC, A (VCC in the middle). |
 
 - The pin orders above are assumed. Put each part's legs in the listed columns, then **read the
   name printed next to each leg**: the wire from that strip goes to that net (table below). If the
@@ -76,9 +76,9 @@ flowchart LR
         LS["SIG E10"]
     end
     subgraph SMOKE["SEN0570 smoke"]
-        SV["VCC N10"]
+        SV["VCC M10"]
         SG["GND L10"]
-        SA["A M10"]
+        SA["A N10"]
     end
     UV["LTR390 UV #4831<br/>addr 0x53"]
 
@@ -108,8 +108,8 @@ Use insulated wire (30 AWG wire-wrap is ideal). Wires may cross each other.
 | W5 | B11 (Grove GND strip) | A11 (GND rail) | GND |
 | W6 | C13 (Grove VCC strip) | M19 (V+ pad) | V+ |
 | W7 | E13 (Grove SIG strip) | E19 (pad 1) | loudness |
-| W8 | N9 (smoke VCC strip) | O8 (V+ rail) | V+ |
-| W9 | M9 (smoke A strip) | G19 (pad 2) | smoke |
+| W8 | M9 (smoke VCC strip) | O8 (V+ rail) | V+ |
+| W9 | N9 (smoke A strip) | G19 (pad 2) | smoke |
 | W10 | L9 (smoke GND strip) | A9 (GND rail) | GND |
 
 ## Build order
