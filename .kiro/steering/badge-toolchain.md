@@ -68,17 +68,18 @@ Add `-dither None` for flat art; the default Floyd-Steinberg dither suits photos
   lvgl_micropython path (inconsistent 16/32 MB settings; the toml is an unrelated ST7796 template).
 
 ## Desktop simulator (`firmware/sim/`, from upstream PR #11)
-- `sim.py` runs the real firmware on lvgl_micropython's Unix/SDL port with fake `machine`,
-  `neopixel`, SPI, I2C. Run `firmware/sim/badge-sim [--scale F] [--real-refresh] [--sao-port P]`.
+- `sim.py` runs the real firmware on lv_micropython's Unix/SDL port (the same MicroPython + LVGL as
+  the badge) with fake `machine`, `neopixel`, SPI, I2C. Run `firmware/sim/badge-sim [--scale F]
+  [--real-refresh] [--sao-port P] [--no-repl]`; `LV_MICROPYTHON` points it at another interpreter.
 - Keys: A = User A, B = User B, Left = Menu -, Right = Menu +, Space = Boot.
 - SAO emulation over TCP 127.0.0.1:47100 (`sao_example.py` = 24C02 EEPROM at 0x50).
-- Build documented only for Ubuntu (see `SIMULATOR.md`). `firmware/sim/lvgl_micropython` is a
-  committed symlink to the PR author's machine; delete it before cloning.
+- Writable state in `firmware/sim/data/` (git-ignored, copied from `firmware/badge/data/`); delete it
+  to reset. Build steps in `SIMULATOR.md` (untested on this Mac).
 - Different bindings from the badge (e.g. no `inv_p`), not speed- or RAM-accurate.
 
 ## This fork (github.com/cosmosified/2026-Billboard_Badge)
 - Remotes: `origin` = Hack-a-Day upstream, `fork` = cosmosified (SSH). Work goes on a branch, then a
-  tracking PR on the fork, squash-merged into `main`.
+  tracking PR on the fork, squash-merged into `main` (upstream syncs: real merge commits).
 - Upstream PRs merged and tested on the badge: #9 (soft-reset crash fix), #12 (sao.py), #2 (binfont,
   plus a kerning fix), #13 (Life), #8 (Quick Draw), #7 (menu LED wrap past 48 apps), #11 (simulator +
   fixes), #18 (resume last app, fork PR #6), #19 (owner.json nametag, fork PR #7), #21 (BLE
@@ -99,9 +100,12 @@ Add `-dither None` for flat art; the default Floyd-Steinberg dither suits photos
 - Upstream `main` 2668f6b (#23 smooth text, #27 Photo Upload, #29 Spiral) merged on
   `sync/upstream-3` (2026-11-08), plus open PRs #30 (OTP read, fixed: GPIO21 re-routed after SPI
   deinit), #15 (battery overlay, ported into the fork's `run()`) and #26 (HTTP poller, without its
-  committed Wi-Fi credentials; key no longer logged, failures retried after 60 s). Because fork
-  merges are squashes, every sync re-conflicts in `epd.py` and the READMEs even when upstream didn't
-  change them; resolve by keeping ours plus upstream's real delta since the last synced commit.
+  committed Wi-Fi credentials; key no longer logged, failures retried after 60 s).
+- Upstream syncs now use real merge commits (2026-11-08, `sync/upstream-ancestry`): an `-s ours`
+  merge recorded upstream 2668f6b as merged (content was already in via squashes), then upstream
+  43b1564 (final simulator #11) merged normally. Fork `main` now contains upstream `main` as an
+  ancestor, so future syncs only conflict where both sides really changed. Keep merging upstream
+  with `git merge origin/main` (no squash); fork feature PRs can still be squashed.
 - Open upstream PRs not merged as a whole (as of 2026-11-08): #3 (Etch-A-Sketch + input/fast-refresh
   changes), #6 (only its Mandelbrot app is in), #20 (app grid). #15, #26 and #30 are in the fork
   but still open upstream.
