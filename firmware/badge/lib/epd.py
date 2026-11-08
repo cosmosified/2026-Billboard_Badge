@@ -178,13 +178,13 @@ class EPaperDisplay:
         EPD_CS1_PIN.value(True)
         EPD_CS2_PIN.value(True)
         try:
-            self.spi = SPI(
-                1,
-                baudrate=20_000_000,
-                sck=EPD_SCL_PIN,
-                mosi=EPD_SDA_PIN,
-                miso=EPD_SPI_MISO_PIN,
-            )
+            # After a soft reset SPI(1) keeps its settings but the pins lose
+            # their routing, and the constructor skips re-init when the
+            # settings match: the bus writes nothing (refresh "done" in ~2 s,
+            # panel unchanged). Deinit and construct again to force a full init.
+            spi_args = dict(baudrate=20_000_000, sck=EPD_SCL_PIN, mosi=EPD_SDA_PIN, miso=EPD_SPI_MISO_PIN)
+            SPI(1, **spi_args).deinit()
+            self.spi = SPI(1, **spi_args)
         except Exception:
             self.spi = SoftSPI(
                 baudrate=8_000_000,
