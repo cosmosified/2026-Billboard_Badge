@@ -1,7 +1,7 @@
 """Host simulator for the Hackaday Supercon 2026 Billboard Badge.
 
-Runs the firmware in ../badge/ on lvgl_micropython's Unix port. Only the hardware
-edges are replaced:
+Runs the firmware in ../badge/, unchanged, on lv_micropython's Unix port (the same
+MicroPython+LVGL the badge is built with). Only the hardware edges are replaced:
   * machine (Pin/Signal/ADC/SoftSPI/I2C/...) -> fakes; button pins read the sim's buttons,
                                                e-paper BUSY pins follow the simulated panel
   * neopixel                                 -> the row of 8 LED blocks in the window
@@ -9,12 +9,13 @@ edges are replaced:
                                                LVGL display and framebuffers run unchanged.
   * the SAO I2C bus                          -> a TCP server; SAO emulators connect to it
   * the badge filesystem                     -> ../badge mounted at /, ./data at /data
+                                               (os.ilistdir gives 4-tuples, as on the badge)
 
 See SIMULATOR.md for building the interpreter and how each piece works.
 
 Usage:
-    lvgl_micropy_unix sim/sim.py [--scale F] [--real-refresh] [--bw-time S] [--bwr-time S]
-                                 [--led-full N] [--sao-port P]
+    micropython sim/sim.py [--scale F] [--real-refresh] [--bw-time S] [--bwr-time S]
+                           [--led-full N] [--sao-port P] [--no-repl]
 
     --scale F        Initial window scale, default 1.0 (the panel at 1:1). The window
                      can also be resized; the badge keeps its shape.
@@ -25,6 +26,8 @@ Usage:
     --led-full N     LED channel value drawn at full brightness, default 4. The firmware
                      uses small values (0-3) because the real LEDs are very bright.
     --sao-port P     TCP port for SAO emulators, default 47100. 0 turns it off.
+    --no-repl        Don't run a REPL in the terminal. (There is none anyway when stdin
+                     isn't a terminal.)
 """
 
 import sys
@@ -47,6 +50,7 @@ def _parse_args():
         "bwr-time": 20.0,
         "led-full": 4.0,
         "sao-port": 47100,
+        "repl": True,
     }
     args = sys.argv[1:]
     while args:
@@ -54,6 +58,8 @@ def _parse_args():
         name = arg[2:]
         if arg == "--real-refresh":
             options[name] = True
+        elif arg == "--no-repl":
+            options["repl"] = False
         elif arg.startswith("--") and name in options and args:
             options[name] = float(args.pop(0))
         else:
@@ -276,7 +282,7 @@ def _reset():
 
 
 _fake_machine = _Module("machine")
-for _name in dir(_real_machine):  # Keep Timer etc., which lvgl's task_handler needs
+for _name in dir(_real_machine):  # Keep whatever the Unix port's machine has
     if not _name.startswith("__"):
         setattr(_fake_machine, _name, getattr(_real_machine, _name))
 for _name, _value in (
@@ -336,6 +342,58 @@ class NeoPixel:
 
 
 sys.modules["neopixel"] = _Module("neopixel", NeoPixel=NeoPixel)
+
+
+# ---------------------------------------------------------------------------
+# os and sys, where the Unix port differs from the badge's ESP32 port
+# ---------------------------------------------------------------------------
+
+
+def _copy_module(module, name, **overrides):
+    fake = _Module(name)
+    for attr in dir(module):
+        if not attr.startswith("__"):
+            setattr(fake, attr, getattr(module, attr))
+    for attr, value in overrides.items():
+        setattr(fake, attr, value)
+    return fake
+
+
+def _ilistdir(path="."):
+    """os.ilistdir, giving (name, type, inode, size) as the badge's filesystem does.
+    The Unix port's VfsPosix gives 3-tuples, and lib/app_switcher.py unpacks 4."""
+    for entry in os.ilistdir(path):
+        if len(entry) >= 4:
+            yield entry
+            continue
+        name, kind, inode = entry[0], entry[1], entry[2]
+        size = 0
+        if kind == 0x8000:
+            try:
+                size = os.stat(path.rstrip("/") + "/" + name)[6]
+            except OSError:
+                pass
+        yield (name, kind, inode, size)
+
+
+sys.modules["os"] = _copy_module(os, "os", ilistdir=_ilistdir)
+
+# lib/led_bar.py picks the real NeoPixel code by sys.platform == "esp32". The sim
+# imports it with this stand-in for sys, so it takes the badge's own code path with
+# the fake neopixel above. Nothing else sees it.
+_esp32_sys = _copy_module(sys, "sys", platform="esp32")
+
+
+def _import_as_esp32(name):
+    real_sys = sys.modules.get("sys")
+    sys.modules["sys"] = _esp32_sys
+    try:
+        __import__(name)
+    finally:
+        if real_sys is None:
+            del sys.modules["sys"]
+        else:
+            sys.modules["sys"] = real_sys
 
 
 # ---------------------------------------------------------------------------
@@ -557,23 +615,14 @@ class EpdPanel:
 # face that is scaled to fit the window, with black around it.
 # ---------------------------------------------------------------------------
 
-_SDL_WINDOW_RESIZABLE = 0x20
-_SDL_WINDOWEVENT_CLOSE = 14
-_IMAGE_ALIGN_STRETCH = 11  # lv_image_align_t, not exported by the binding
-
-
-def _sdl(scancode):
-    return (1 << 30) | scancode
-
-
-# Physical left-to-right order on the badge (SW4..SW7), then Boot. Keyboard keys, and
-# the label shown for them. Names come from the firmware's Button objects.
+# Physical left-to-right order on the badge (SW4..SW7), then Boot. SDL scancodes of
+# the keys, and the label shown for them. Names come from the firmware's Button objects.
 _BUTTONS = (
-    ("UserA", (ord("a"),), "A"),
-    ("MenuMinus", (_sdl(80),), "Left"),
-    ("MenuPlus", (_sdl(79),), "Right"),
-    ("UserB", (ord("b"),), "B"),
-    ("Boot", (ord(" "),), "Space"),
+    ("UserA", 4, "A"),
+    ("MenuMinus", 80, "Left"),
+    ("MenuPlus", 79, "Right"),
+    ("UserB", 5, "B"),
+    ("Boot", 44, "Space"),
 )
 
 _FACE_COLOR = 0x1E1E1E
@@ -581,22 +630,16 @@ _LED_OFF_COLOR = 0x2E2E2E
 _STATUS_ON_COLOR = 0x40FF40
 
 
-def _quit():
-    raise SystemExit("Simulator window closed")
+def _sdl_keyboard_state():
+    """SDL's array of which keys are down, indexed by scancode. LVGL's SDL keyboard
+    driver only reports the last key, and the badge's buttons can be held together.
+    The array is updated whenever LVGL's SDL driver reads events."""
+    import ffi
+    import uctypes
 
-
-class _NoCalibration:
-    """A mouse needs no touch calibration. Without this, sdl_pointer creates a
-    calibration file in the current directory, which is the firmware's root.
-    (SDLPointer ignores a touch_cal argument, so its calibration module is replaced.)"""
-
-    alphaX = betaX = deltaX = alphaY = betaY = deltaY = mirrorX = mirrorY = None
-
-    def __init__(self, name=None):
-        pass
-
-    def save(self):
-        pass
+    sdl = ffi.open("libSDL2-2.0.so.0")  # Already loaded by LVGL's SDL driver
+    get_state = sdl.func("p", "SDL_GetKeyboardState", "p")
+    return uctypes.bytearray_at(get_state(None), 512)  # SDL_NUM_SCANCODES
 
 
 def _font_for(pixels):
@@ -613,43 +656,21 @@ def _font_for(pixels):
 class Face:
     def __init__(self, scale, buttons, status_led):
         import lvgl as lv
-        import lcd_bus
-        import sdl_display
-        import sdl_pointer
 
         self.lv = lv
         self._status_led = status_led
         self._status_shown = None
         firmware_disp = lv.display_get_default()
 
-        bus = lcd_bus.SDLBus(flags=_SDL_WINDOW_RESIZABLE)
-        self._sdl = sdl_display.SDLDisplay(
-            data_bus=bus,
-            display_width=int(FACE_W * scale),
-            display_height=int(FACE_H * scale),
-            color_space=lv.COLOR_FORMAT.RGB888,
-            # LVGL stores RGB888 as B,G,R bytes; without this SDL reads R,G,B (red <-> blue)
-            color_byte_order=sdl_display.BYTE_ORDER_BGR,
-        )
-        self._sdl.init()
-        self._disp = self._sdl._disp_drv
-
-        # The firmware draws on the default display, so it must stay the firmware's.
-        # The mouse driver attaches to the default display, so switch briefly.
-        self._disp.set_default()
-        sys.modules["touch_cal_data"] = _Module("touch_cal_data", TouchCalData=_NoCalibration)
-        sdl_pointer.SDLPointer()
+        # LVGL's SDL window (resizable; closing it ends the process). The firmware draws
+        # on the default display, so that must stay the firmware's.
+        self._disp = lv.sdl_window_create(int(FACE_W * scale), int(FACE_H * scale))
+        lv.sdl_window_set_title(self._disp, "Billboard Badge simulator")
         firmware_disp.set_default()
+        mouse = lv.sdl_mouse_create()
+        mouse.set_display(self._disp)
+        self._keys = _sdl_keyboard_state()
 
-        bus.register_quit_callback(_quit)
-
-        def window_event(event_type, event, width, height):
-            if event == _SDL_WINDOWEVENT_CLOSE:
-                _quit()
-            self._sdl._windows_event_cb(event_type, event, width, height)
-
-        bus.register_window_callback(window_event)
-        bus.register_keypad_callback(self._on_key)
         self._disp.add_event_cb(lambda _: self._layout(), lv.EVENT.RESOLUTION_CHANGED, None)
 
         screen = self._disp.get_screen_active()
@@ -676,7 +697,7 @@ class Face:
         )
         self._epd = lv.image(screen)
         self._epd.set_src(self._epd_dsc)
-        self._epd.set_inner_align(_IMAGE_ALIGN_STRETCH)
+        self._epd.set_inner_align(lv.image.ALIGN.STRETCH)
         self._place(self._epd, 24, 24, EPD_W, EPD_H)
 
         self._note = lv.label(screen)
@@ -695,10 +716,10 @@ class Face:
         self._led_shown = None
 
         # Buttons, then the status LED, in 6 slots across the panel's width
-        self._buttons = {}  # firmware Button -> (lv button, key set)
-        self._key_down = set()
+        self._buttons = {}  # firmware Button -> (lv button, scancode)
+        self._key_shown = {}  # firmware Button -> whether its key was down at the last poll
         self._gui_down = set()
-        for slot, (name, keys, key_label) in enumerate(_BUTTONS):
+        for slot, (name, scancode, key_label) in enumerate(_BUTTONS):
             fw_button = buttons[name]
             btn = lv.button(screen)
             self._place(btn, 24 + slot * 160 + 12, 800, 136, 56)
@@ -710,7 +731,8 @@ class Face:
             btn.add_event_cb(lambda _, b=fw_button: self._gui(b, True), lv.EVENT.PRESSED, None)
             btn.add_event_cb(lambda _, b=fw_button: self._gui(b, False), lv.EVENT.RELEASED, None)
             btn.add_event_cb(lambda _, b=fw_button: self._gui(b, False), lv.EVENT.PRESS_LOST, None)
-            self._buttons[fw_button] = (btn, keys)
+            self._buttons[fw_button] = (btn, scancode)
+            self._key_shown[fw_button] = False
             fw_button.pin.pin.source = lambda b=fw_button: 0 if self._is_down(b) else 1
 
         self._status = self._box(screen, 24 + 5 * 160 + 68, 808, 24, 24, _LED_OFF_COLOR, radius=12)
@@ -793,11 +815,20 @@ class Face:
             self._status_shown = status
             color = _STATUS_ON_COLOR if status else _LED_OFF_COLOR
             self._status.set_style_bg_color(self.lv.color_hex(color), 0)
+        # Show a held key as a pressed on-screen button
+        for fw_button, (btn, scancode) in self._buttons.items():
+            down = bool(self._keys[scancode])
+            if down != self._key_shown[fw_button]:
+                self._key_shown[fw_button] = down
+                if down:
+                    btn.add_state(self.lv.STATE.PRESSED)
+                elif fw_button not in self._gui_down:
+                    btn.remove_state(self.lv.STATE.PRESSED)
 
     # --- buttons --------------------------------------------------------
 
     def _is_down(self, fw_button):
-        return fw_button in self._key_down or fw_button in self._gui_down
+        return bool(self._keys[self._buttons[fw_button][1]]) or fw_button in self._gui_down
 
     def _gui(self, fw_button, down):
         if down:
@@ -805,26 +836,16 @@ class Face:
         else:
             self._gui_down.discard(fw_button)
 
-    def _on_key(self, _event_type, state, key, _mod):
-        for fw_button, (btn, keys) in self._buttons.items():
-            if key in keys:
-                if state:
-                    self._key_down.add(fw_button)
-                    btn.add_state(self.lv.STATE.PRESSED)
-                else:
-                    self._key_down.discard(fw_button)
-                    btn.remove_state(self.lv.STATE.PRESSED)
-
 
 # ---------------------------------------------------------------------------
 # Wire it up and run the firmware's own main()
 # ---------------------------------------------------------------------------
 
 
-async def _lvgl_loop(th):
+async def _lvgl_loop(lv):
     # Runs LVGL's timers: the window's redraws and SDL's events (keys, mouse, resize).
     while True:
-        th._task_handler(None)
+        lv.timer_handler()
         await asyncio.sleep_ms(33)
 
 
@@ -833,6 +854,87 @@ async def _poll_loop(face, panel):
         face.poll()
         panel.poll()
         await asyncio.sleep_ms(20)
+
+
+# ---------------------------------------------------------------------------
+# REPL in the terminal, running alongside the firmware. Line-based: the terminal
+# does the line editing, and the firmware keeps running between lines.
+# ---------------------------------------------------------------------------
+
+_REPL_BANNER = """
+[sim] REPL ready. The firmware keeps running while you type. Try:
+    press(UserA)               press and release a button (also MenuPlus, MenuMinus, UserB, Boot)
+    leds.fill((4, 0, 0))       light every LED red. While the menu is open it redraws
+                               the LEDs constantly, so launch an app first (press(UserA)).
+    switcher.apps              the installed apps
+    display.clear(); display.black.text("hi", 400, 300, 1); display.update()
+End a block (if/for/def...) with an empty line. Ctrl-D closes the REPL; Ctrl-C quits.
+"""
+
+
+def _stdin_is_terminal():
+    try:
+        import termios
+
+        termios.tcgetattr(0)
+        return True
+    except Exception:
+        return False
+
+
+async def _repl(namespace):
+    import select
+
+    poller = select.poll()
+    poller.register(0, select.POLLIN)
+    await asyncio.sleep_ms(1000)  # Let the firmware's start-up messages go first
+    print(_REPL_BANNER)
+    lines = []
+    while True:
+        sys.stdout.write("... " if lines else ">>> ")
+        while not poller.poll(0):
+            await asyncio.sleep_ms(50)
+        line = sys.stdin.readline()
+        if not line:  # Ctrl-D
+            print("\n[sim] REPL closed. The badge keeps running; Ctrl-C quits.")
+            return
+        line = line.rstrip("\n")
+        stripped = line.rstrip()
+        if lines or stripped.endswith(":") or stripped.endswith("\\"):
+            if line.strip():
+                lines.append(line)
+                continue
+            source, mode, lines = "\n".join(lines) + "\n", "exec", []
+        else:
+            source, mode = line, "single"  # "single" prints the value of an expression
+        if not source.strip():
+            continue
+        try:
+            exec(compile(source, "<stdin>", mode), namespace)
+        except Exception as exc:
+            sys.print_exception(exc)
+
+
+def _repl_namespace(main, face, lv):
+    import lib.button
+
+    namespace = dict(main.__dict__)  # leds, display, switcher, UserA, ... as main.py sees them
+    namespace.update(lvgl=lv, lv=lv)
+    for name, _, _ in _BUTTONS:
+        namespace[name] = getattr(lib.button, name)
+
+    def press(button, ms=150):
+        """Press a firmware Button (e.g. MenuPlus) for ms milliseconds."""
+
+        async def hold():
+            face._gui(button, True)
+            await asyncio.sleep_ms(ms)
+            face._gui(button, False)
+
+        asyncio.create_task(hold())
+
+    namespace["press"] = press
+    return namespace
 
 
 def run():
@@ -846,9 +948,13 @@ def run():
 
     import boot  # noqa: F401  As on the badge, boot.py runs before main.py
 
-    # The hardware modules, before main imports them, so the window can attach to them.
+    _import_as_esp32("lib.led_bar")  # Before anything else imports it
+
+    # main.py resets the badge if an LVGL display already exists when it starts (one
+    # left over from a soft reset), so the sim creates its window after importing it.
+    # main.main() doesn't run until the sim calls it below.
+    import main
     import lvgl as lv
-    import task_handler
     import lib.epd
     import lib.button
     import lib.board
@@ -862,16 +968,13 @@ def run():
     face = Face(OPTIONS["scale"], buttons, lib.board.status_led)
     panel = EpdPanel(lib.epd, face)
 
-    th = task_handler.TaskHandler()
-    th._timer.deinit()
-
-    import main
-
     async def sim_main():
-        asyncio.create_task(_lvgl_loop(th))
+        asyncio.create_task(_lvgl_loop(lv))
         asyncio.create_task(_poll_loop(face, panel))
         if _sao_bus:
             asyncio.create_task(_sao_bus.run())
+        if OPTIONS["repl"] and _stdin_is_terminal():
+            asyncio.create_task(_repl(_repl_namespace(main, face, lv)))
         await main.main()
 
     print("Supercon 2026 badge simulator")

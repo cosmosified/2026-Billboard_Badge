@@ -1,13 +1,12 @@
 # Badge Simulator
 
-Runs the Supercon 2026 Billboard Badge firmware (`firmware/badge/`) on a laptop. The window shows the e-paper panel, the 8 RGB LEDs and the status LED, and the buttons. The buttons respond to the keyboard or the mouse. SAOs can be emulated by programs that connect over TCP.
+Runs the Supercon 2026 Billboard Badge firmware (`firmware/badge/`) on a laptop. The window shows the e-paper panel, the 8 RGB LEDs and the status LED, and the buttons. The buttons respond to the keyboard or the mouse. The terminal gives a REPL into the running firmware. SAOs can be emulated by programs that connect over TCP.
 
-- `sim.py` is the whole simulator: one MicroPython file, run by lvgl_micropython's Unix port.
+- `sim.py` is the whole simulator: one MicroPython file, run by lv_micropython's Unix port.
 - `badge-sim` is a launcher that runs `sim.py` with the right interpreter and heap size.
 - `sao_example.py` is an example SAO (a small I2C memory) to copy.
-- `frozen_manifest.py` is a build setting for the interpreter (see [Build](#build)).
 
-The firmware runs as it is; only the hardware edges are replaced.
+The firmware runs unchanged; only the hardware is replaced. Nothing in `firmware/badge/` is modified or written to.
 
 ## Quick start
 
@@ -27,10 +26,13 @@ python3 firmware/sim/sao_example.py       # in another terminal: an SAO at I2C a
 | `--bw-time S` / `--bwr-time S` | Refresh time for an image without / with red (default 2 and 20 seconds). |
 | `--led-full N` | LED channel value drawn at full brightness (default 4). See [LEDs](#leds). |
 | `--sao-port P` | TCP port for SAO emulators (default 47100). `0` turns the SAO bus off. |
+| `--no-repl` | No REPL in the terminal. |
 
-Set `LVGL_MICROPY` to point `badge-sim` at an interpreter somewhere other than `firmware/sim/lvgl_micropython/build/lvgl_micropy_unix`.
+Set `LV_MICROPYTHON` to point `badge-sim` at an interpreter somewhere other than `firmware/sim/lv_micropython/ports/unix/build-lvgl/micropython`.
 
-The firmware's writable state lives in `firmware/sim/data/` (git-ignored), which is copied from `firmware/badge/data/` on the first run (missing files are copied on every run). Delete `firmware/sim/data/` to "factory reset" the simulated badge. `firmware/badge/data/` is never written to.
+The firmware's writable state lives in `firmware/sim/data/` (git-ignored), which is copied from `firmware/badge/data/` on the first run (missing files are copied on every run). Delete `firmware/sim/data/` to "factory reset" the simulated badge.
+
+Close the window or press Ctrl-C in the terminal to quit.
 
 ### Buttons
 
@@ -42,7 +44,25 @@ The firmware's writable state lives in `firmware/sim/data/` (git-ignored), which
 | B | User B |
 | Space | Boot |
 
-The on-screen buttons can also be clicked and held. The screen buttons are labeled with the firmware's names and laid out in the badge's switch order (SW4–SW7, then Boot). `lib/button.py` notes that the silkscreen swaps + and -. Boot (GPIO0) is the strapping pin only at reset; at runtime it's an ordinary button that `lib/button.py` scans and apps can read.
+The window needs keyboard focus. The on-screen buttons can also be clicked and held, and several keys can be held at once. The screen buttons are labeled with the firmware's names and laid out in the badge's switch order (SW4–SW7, then Boot). `lib/button.py` notes that the silkscreen swaps + and -. Boot (GPIO0) is the strapping pin only at reset; at runtime it's an ordinary button that `lib/button.py` scans and apps can read.
+
+### REPL
+
+When the sim is started from a terminal, it gives a `>>>` prompt there about a second after boot. Its names are `main.py`'s (`leds`, `display`, `switcher`, `UserA`, `json_configs`, ...), plus `lvgl`, all five buttons, and `press()`:
+
+```python
+>>> press(UserA)                  # press and release a button (ms=150 by default)
+>>> leds.fill((4, 0, 0))          # all LEDs red
+>>> switcher.apps[switcher.active_idx].name
+'Workshops'
+>>> display.clear(); display.black.text("hi", 400, 300, 1); display.update()
+```
+
+- The firmware keeps running between lines. A line that blocks (`time.sleep(5)`) stops the badge until it returns, as it would on the badge.
+- It's line-based, so the terminal does the editing; there's no history or tab completion. A line ending in `:` starts a block, which an empty line ends.
+- While the menu is open, the app switcher redraws the LEDs every 10 ms, so LED changes only last once an app is running.
+- Ctrl-D closes the REPL and leaves the badge running. Ctrl-C quits the sim.
+- The firmware's own messages are printed in the same terminal, so they can land in the middle of what you're typing. The line you're typing is still intact.
 
 ### LEDs
 
@@ -54,41 +74,33 @@ The round "status" indicator is the status LED on GPIO1 (`lib/board.py`). It's d
 
 ## Build
 
-The sim runs on [lvgl_micropython](https://github.com/lvgl-micropython/lvgl_micropython) built for Unix with SDL. Note that this is **not** the lv_micropython the badge itself is now built with; see [Known gaps](#known-gaps). The build was verified on Ubuntu with lvgl_micropython `d2d2646` (June 2026), which builds MicroPython 1.27.0.
+The sim runs on [lv_micropython](https://github.com/lvgl/lv_micropython)'s Unix port, the same MicroPython+LVGL the badge is built with (see `firmware/README.md`), using LVGL's own SDL window and mouse drivers. It was verified on Ubuntu with lv_micropython `44aa2b1` (September 2026: MicroPython 1.24.1, LVGL 9.3).
 
 ```bash
-# Ubuntu dependencies (from the lvgl_micropython README; SDL2 is compiled by the build).
-# Keep this on one line when pasting.
-sudo apt-get install -y build-essential libffi-dev pkg-config cmake ninja-build libasound2-dev libpulse-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libwayland-dev libdecor-0-dev
+sudo apt-get install -y build-essential libreadline-dev libffi-dev git pkg-config libsdl2-dev
 
 cd firmware/sim
-git clone https://github.com/lvgl-micropython/lvgl_micropython   # git-ignored
-cd lvgl_micropython
+git clone https://github.com/lvgl/lv_micropython   # git-ignored
+cd lv_micropython
+git submodule update --init --recursive user_modules/lv_binding_micropython
+B=user_modules/lv_binding_micropython
 
-# All Montserrat font sizes (the apps use 14, 16, 24 and 48; turning them all on
-# means new apps don't need a rebuild)
-sed -i -E 's/^#define LV_FONT_MONTSERRAT_([0-9]+) +0/#define LV_FONT_MONTSERRAT_\1 1/' lib/lv_conf.h
+# 1. All Montserrat font sizes. The binding's lv_conf.h only has 14, 16 and 24, but
+#    nametag.py uses 48, and turning them all on means new apps don't need a rebuild.
+sed -i -E 's/^#define LV_FONT_MONTSERRAT_([0-9]+) +0/#define LV_FONT_MONTSERRAT_\1 1/' $B/lv_conf.h
 
-# About 10 minutes the first time; it downloads MicroPython and SDL2.
-# FROZEN_MANIFEST puts asyncio back in (lvgl_micropython's Unix build leaves it out).
-python3 make.py unix DISPLAY=sdl_display INDEV=sdl_pointer FROZEN_MANIFEST=../frozen_manifest.py
-chmod +x build/lvgl_micropy_unix   # the build says to use sudo; it isn't needed
+# 2. Put LVGL's SDL functions in the lvgl module. The binding is generated from
+#    lvgl_private.h, which doesn't include LVGL's drivers, so lvgl.sdl_window_create
+#    and friends are missing even with SDL found. This adds lvgl.h to the generator's input.
+sed -i 's|\t\t\$(LVGL_DIR)/lvgl_private.h \| \$(LV_PP_FILTER)|\t\t-include $(LVGL_DIR)/lvgl.h $(LVGL_DIR)/lvgl_private.h \| $(LV_PP_FILTER)|' $B/micropython.mk
+
+make -C mpy-cross -j
+make -C ports/unix VARIANT=lvgl submodules
+make -C ports/unix VARIANT=lvgl -j     # a few minutes
+ports/unix/build-lvgl/micropython -c "import lvgl; print(lvgl.sdl_window_create)"   # check
 ```
 
-The interpreter segfaults on every exit, even after `-c 'print(1)'`. That's a bug in lvgl_micropython's Unix shutdown code and it's harmless.
-
-## Firmware changes
-
-These are bug fixes that apply to the real badge too. Without them, the sim couldn't run the firmware unmodified:
-
-| File | Change | Why |
-|---|---|---|
-| `lib/led_bar.py` | Chooses the real LEDs by whether `neopixel` can be imported, not by `sys.platform == "esp32"`. The no-LED fallback is now a list with `fill()` and `write()`. | The fallback's `fill()` and `clear()` crashed (a plain list has neither). Keying on `neopixel` also lets the sim supply a fake `neopixel` module and exercise the badge's own code path. |
-| `lib/app_switcher.py` | Reads `entry[0]` from `os.ilistdir()` instead of unpacking 4 values. | MicroPython documents the entries as 3- *or* 4-tuples. The badge's filesystem gives 4; the host gives 3. |
-| `lib/app_switcher.py` | Menu order comes from an explicit `APP_ORDER` list. Unlisted apps come after the listed ones, sorted by name. | The order came from iterating module dictionaries, which follows hash-table placement. It was the same on every boot of one badge, but it differed between the badge and the sim, and adding an app could shuffle the others. |
-| `lib/sao.py` | Removed the `/` (positional-only marker) from `Sao.readfrom`. | MicroPython doesn't support that syntax, so `lib/sao.py` couldn't be imported on the badge either. |
-| `main.py` | `never-epd.png` → `never_epd.png`. | The file's real name; the 42nd boot would have crashed. |
-| `apps/nametag.py` | `display.lv_display.inv_p = 0` moved into `_discard_pending_redraws()`, which falls back to rendering the pending areas into a flush that discards them. | `inv_p` is a private LVGL field. lvgl_micropython's bindings don't expose it, and LVGL's public way to clear it (`lv_inv_area(disp, NULL)`) isn't bound either. On the badge the original line still runs. |
+SDL support is only built in if `pkg-config` finds `sdl2` when `make` runs. If `libsdl2-dev` was installed after a build (or the check above fails), run `make -C ports/unix VARIANT=lvgl clean` and build again.
 
 ## How sim.py works
 
@@ -96,30 +108,37 @@ Every piece of hardware is created when its module is imported, so `sim.py` inst
 
 | Hardware | Firmware | In the sim |
 |---|---|---|
-| Buttons (GPIO, polled every 1 ms) | `lib/button.py` | Fake `machine.Pin`. Each button's pin reads the sim's state for that button (keyboard or mouse). The sim finds the pins through the firmware's own `Button` objects, so it doesn't repeat pin numbers. |
+| Buttons (GPIO, polled every 1 ms) | `lib/button.py` | Fake `machine.Pin`. Each button's pin reads the sim's state for that button: its key (read from SDL's keyboard state through `ffi`) or the mouse. The sim finds the pins through the firmware's own `Button` objects, so it doesn't repeat pin numbers. |
 | WS2812 LEDs | `lib/led_bar.py` via `neopixel` | Fake `neopixel` module. `write()` sends the colors to the window. |
 | Status LED, battery sense | `lib/board.py` | The status LED's pin is shown as an indicator. The ADC reads ~2.35 V, which is USB power through the 1/2 divider. |
-| E-paper panel (SoftSPI + pins) | `lib/epd.py` | The firmware's LVGL display, flush callback and framebuffers all run unchanged. The sim wraps `display.update()` to copy the black and red framebuffers into the window. With `--real-refresh`, a fake SPI bus watches for the panel's refresh command (`0x15`). The BUSY pins (active low) then read busy for the refresh time, and the firmware's own code waits on them as it does on the badge. |
+| E-paper panel (SPI + pins) | `lib/epd.py` | The firmware's LVGL display, flush callback and framebuffers all run unchanged. The sim wraps `display.update()` to copy the black and red framebuffers into the window. With `--real-refresh`, a fake SPI bus watches for the panel's refresh command (`0x15`). The BUSY pins (active low) then read busy for the refresh time, and the firmware's own code waits on them as it does on the badge. |
 | SAO I2C bus | `lib/sao.py` | Fake `machine.I2C` that forwards transactions to SAO emulators over TCP. `machine.I2CTarget` is accepted but does nothing. |
 | Filesystem | everything | `firmware/badge/` is mounted at `/` and `firmware/sim/data/` at `/data`, using MicroPython's `VfsPosix`. Paths and `sys.path` match the badge. |
+
+### Where the Unix port differs from the badge
+
+The firmware runs unchanged, so `sim.py` covers these differences itself:
+
+- **`os.ilistdir()`** returns 3-tuples from the Unix port's `VfsPosix`, but 4-tuples on the badge, and `lib/app_switcher.py` unpacks 4. The firmware gets a stand-in `os` module whose `ilistdir()` adds the size.
+- **`sys.platform`** is `"linux"`, and `lib/led_bar.py` only uses the NeoPixel when it's `"esp32"`. (Its fallback, meant for CPython, crashes on `write()`.) The sim imports `lib/led_bar.py` with a stand-in `sys` whose `platform` is `"esp32"`, so it takes the badge's code path with the fake `neopixel`. No other module sees it.
+- **`main.py` resets the badge if an LVGL display exists when it starts** (one left over from a soft reset). So the sim imports `main` before it creates its window, and only then calls `main.main()`.
 
 ### Two LVGL displays
 
 On the badge, LVGL has one display: the firmware's 960×672 e-paper display. **The firmware never runs LVGL's timers.** It redraws only when it calls `lvgl.refr_now(display.lv_display)`, and then calls `display.update()`.
 
-The sim adds a second LVGL display for its window (`sdl_display`, with `sdl_pointer` for the mouse), and it does run LVGL's timers. Three details keep the two displays apart:
+The sim adds a second LVGL display for its window (`lvgl.sdl_window_create`, with `lvgl.sdl_mouse_create` for the mouse), and it runs LVGL's timers (`lvgl.timer_handler()`) every 33 ms. Three details keep the two displays apart:
 
-- **The firmware's display stays the default display**, because apps call `lvgl.obj()`, `lvgl.screen_active()` and `lvgl.layer_top()` without naming a display. The mouse driver attaches to the default display, so the sim switches the default to its window only while creating it.
+- **The firmware's display stays the default display**, because apps call `lvgl.obj()`, `lvgl.screen_active()` and `lvgl.layer_top()` without naming a display. The sim sets it back as the default after creating its window, and attaches the mouse to the window explicitly.
 - **The timers must not redraw the firmware's display on their own.** LVGL resumes a display's refresh timer whenever anything on it changes, so pausing the timer doesn't stick. Instead the sim sets its period to about 25 days. `refr_now()` calls the refresh function directly, so it still works.
 - **The window's layout is the sim's own.** On resize, LVGL's resolution follows the window. The sim scales a fixed 1008×880 "badge face" to fit, centers it, and leaves black around it. The e-paper image is an RGB565 image stretched to its scaled box.
 
 ### Gotchas
 
-- **Heap.** The window's two frame buffers come from the MicroPython heap (3 bytes per window pixel each, so about 23 MB each when maximized on a large screen). That's why `badge-sim` passes `-X heapsize=160M`. As a result, `micropython.mem_info()` in the firmware's heartbeat shows the sim's heap, not the badge's. The firmware itself uses about 10 MB (mostly LVGL's 1.3 MB draw buffer and the framebuffers).
-- **Byte order.** LVGL stores RGB888 pixels as B,G,R bytes, but `sdl_display` tells SDL they're R,G,B unless it's given `color_byte_order=BYTE_ORDER_BGR`. Without it, red and blue swap.
-- **Touch calibration file.** `sdl_pointer` normally saves a touch calibration file in the current directory, which would be the firmware's root. The sim passes it a calibration object that does nothing.
-- **The window is double-buffered** (LVGL's DIRECT mode). Each buffer only holds the areas drawn into it, so to inspect what's on screen, read the buffer that was flushed last.
-- **Private attributes are used:** `TaskHandler._timer`/`_task_handler` and `SDLDisplay._disp_drv`/`_windows_event_cb` from lvgl_micropython, and the firmware's `display.black`/`.red` framebuffers and `epd.EPD_*_PIN` module globals.
+- **Heap.** LVGL allocates the window's frame buffer from the MicroPython heap (2 bytes per window pixel, so about 16 MB when maximized on a 4K screen). That's why `badge-sim` passes `-X heapsize=96M`. As a result, `micropython.mem_info()` in the firmware's heartbeat shows the sim's heap, not the badge's. The firmware itself uses about 4–10 MB (mostly LVGL's 1.3 MB draw buffer and the framebuffers).
+- **Closing the window ends the process** from inside LVGL's SDL driver (`LV_SDL_DIRECT_EXIT`), so nothing after it runs.
+- **Keys come from SDL directly.** LVGL's SDL keyboard driver reports only the last key pressed, so the sim reads `SDL_GetKeyboardState()` through `ffi` (from the `libSDL2-2.0.so.0` LVGL already loaded).
+- **Private attributes are used:** the firmware's `display.black`/`.red` framebuffers and `epd.EPD_*_PIN` module globals.
 
 ## SAO bus over TCP
 
@@ -143,8 +162,7 @@ All of `machine.I2C`'s methods map onto that one transaction: `scan`, `writeto`,
 
 ## Known gaps
 
-- **Different MicroPython+LVGL build from the badge.** The badge is built with lv_micropython (see `firmware/README.md`); the sim runs on lvgl_micropython's Unix port, because that's where its SDL window and mouse drivers come from. Both use LVGL 9 and MicroPython 1.27, but their Python bindings differ in places. For example, lv_micropython exposes LVGL struct fields like `inv_p`, and lvgl_micropython doesn't. Code that runs in one can fail in the other. Porting the sim to lv_micropython's Unix port, which has its own SDL support, would remove this difference.
-- **`lib/sao.py`'s `Sao.set_address()` ignores its argument** and sets the address to 0. It also creates an `I2CTarget` (the badge as a target) with the same address it then talks to as a controller. That module looks unfinished, so it was left alone. Using `lib.sao.i2c` directly works.
+- **Not the badge's exact build.** The badge's own `lv_conf.h` and lv_micropython commit aren't in the repo, so the sim uses lv_micropython's defaults plus the two changes in [Build](#build). The badge's build may differ in LVGL options (fonts, image decoders, ...).
 - **E-paper realism:** a refresh doesn't flash, there's no ghosting, and partial refresh isn't modeled. In `--real-refresh` mode, whether an image counts as "BWR" is decided by whether any red pixel is set. The firmware always sends both planes, so on the real panel every refresh may take the long time; adjust `--bw-time` if so. The refresh time is on top of the ~1.5 s of delays in the firmware's own update sequence.
-- **Fidelity:** ESP32-S3 speed, RAM limits and timing aren't reproduced. The firmware's pure-Python LVGL flush and PNG decoding run much faster here than on the badge.
+- **Fidelity:** ESP32-S3 speed, RAM limits and timing aren't reproduced. PNG decoding and the firmware's viper code run much faster here than on the badge.
 - **Mouse wheel and keyboard focus** in the window only drive the sim's buttons. The firmware has no LVGL input devices.
