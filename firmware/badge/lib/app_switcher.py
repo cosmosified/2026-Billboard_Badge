@@ -42,7 +42,8 @@ class AppSwitcher:
         self.active_idx = initial_idx
         self.selecting_mode = True
         self.selection_idx = initial_idx
-
+        # False until an app is launched, so boot splash screens get no battery icon
+        self.app_launched = False
         # Discover and load apps
         app_mods = []
         for entry in os.ilistdir("/apps"):  # 3- or 4-tuples, depending on the filesystem
@@ -108,6 +109,10 @@ class AppSwitcher:
 
         self._resume_last_app()
 
+    def battery_icon_wanted(self) -> bool:
+        """Boot splash screens stay clean; after that the active app decides."""
+        return self.app_launched and self.apps[self.active_idx].show_battery_icon
+
     def _resume_last_app(self) -> None:
         """Start the last app launched from the menu instead of the menu.
         Hold Menu+ or Menu- during boot to get the menu instead; it opens with
@@ -143,6 +148,7 @@ class AppSwitcher:
         app = self.apps[last_idx]
         print(f"Resuming {app.name}")
         app.launched = True
+        self.app_launched = True
         self.selecting_mode = False
 
     def _last_app_idx(self) -> int | None:
@@ -217,6 +223,7 @@ class AppSwitcher:
                         continue
                     print(f"Switching to {picked.name}")
                     self.active_idx = self.selection_idx
+                    self.app_launched = True
                     self.apps[self.active_idx].launched = True
                     self._save_last_app()
                     leds.clear_sequence()

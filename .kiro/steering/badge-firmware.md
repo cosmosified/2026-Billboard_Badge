@@ -57,10 +57,10 @@ LVGL extras present: canvas, chart, image, qrcode, barcode, lodepng, tjpgd, `bin
   is constructed with no arguments. Importing another app's class into your module creates a
   duplicate.
 - Menu order: `APP_ORDER = ["Workshops","Sat Talks","Sun Talks","Gallery","Nametag"]`, then other
-  apps sorted by name, then menu actions. Current menu (9 entries): Workshops, Sat Talks, Sun Talks,
-  Gallery, Nametag, Cosmotronics, Mandelbrot, Quick Draw, Bluetooth. Page 2 holds Bluetooth (LED 1),
-  in a different page color. Community apps live in `user_apps/` (Life, KITT) and only appear once
-  copied into `/apps/` on the badge.
+  apps sorted by name, then menu actions. Current menu (11 entries): Workshops, Sat Talks, Sun Talks,
+  Gallery, Nametag, Battery, Cosmotronics, HTTP Poller App, Mandelbrot, Quick Draw, Bluetooth.
+  Page 2 holds Quick Draw (LED 1) and Bluetooth (LED 2), in a different page color. Community apps
+  live in `user_apps/` (Life, KITT, Photo Upload, Spiral) and only appear once copied into `/apps/`.
 - Boot: the badge resumes the last app launched from the menu (`/data/last_app.json`, matched by
   module and app name). It shows the menu instead when a Menu button is held at boot,
   `/data/boot.json` has `"resume": false`, or there is no valid saved app. The menu then opens with
@@ -129,10 +129,16 @@ Deploy: `uv run python scripts/update.py push --reset` from `firmware/`.
   `display.refresh_lvgl(grayscale=...)` or `draw_png(path, grayscale=...)` in the same mode. Requests
   made during a refresh are merged into one more refresh using the last options and the framebuffer
   at that time. See `badge-epaper.md` for fast-refresh and gray details.
-- Busy check: `display._framebuffer_ready.is_set() or not display.is_done_updating()`.
+- Busy check: `display.is_busy()` (= `_framebuffer_ready.is_set() or not is_done_updating()`).
   `is_done_updating()` alone is still True for up to 100 ms after `update()`.
 - `await display._display_updated.wait()`: wait for a refresh (and any queued one) to finish.
-- `draw_png(path, row=0, col=0)`: decode straight into both planes (blocking). Note row then col.
+- `draw_png(source, row=0, col=0)`: `source` is a file path or PNG `bytes`; decodes straight into both
+  planes (blocking). Note row then col.
+- `display.overlay`: an object with `wanted()`, `draw(black, red)` and a byte-aligned `x, y, w, h`,
+  stamped onto each frame as it is sent and then removed from the app's framebuffers. `main.py` sets
+  it to the battery icon (`lib/battery.py`, top right 904,8 48x20, "USB" on USB power, 4 bars on
+  battery, red at 1 bar). Apps hide it with the class attribute `show_battery_icon = False`; it is off
+  until the first app launch or resume. In grayscale mode the red low-battery bars show gray.
 - `draw_image(image, h, w, row, col)`: nested-list RGB, slow, and turns white pixels red (bug).
 - `lv_display`, `lv_screen`: LVGL handles. Constants `display_width`, `display_height` importable.
 - `/data/hwconf` (btree, key `display_pn`): `b"84"` disables bit reversal and selects the driver-8
@@ -240,6 +246,20 @@ Deploy: `uv run python scripts/update.py push --reset` from `firmware/`.
   docstring) + random rainbow LED show (6 effects, random brightness 20-50, switching every 4-9 s).
 - `bluetooth.py` (Bluetooth, menu action): toggles BLE presence; all 8 LEDs blue = on, one dim red
   LED = off.
+- `battery.py` (Battery, upstream #15): big battery gauge on the e-paper, live gauge on the LEDs;
+  A/B redraw. `lib/battery.py` `monitor()` (a main.py task) does a full refresh every 3 min check
+  only when the bar count drops on battery. The battery can't be read on USB power.
+- `http_poller.py` (HTTP Poller App, upstream #26): downloads a PNG from a hard-coded URL every 300 s
+  (retry 60 s) and shows it. Wi-Fi from `/data/wlan_credentials.json` (`[{"ssid", "key"}]`, kept
+  out of git). Connecting blocks the badge up to ~5 s per network.
+- `lib/otp_read.py` (upstream #30): `asyncio.run(read_otp())` reads the panel's 88-byte OTP block by
+  bit-banging 0xB9 and compares it with the driver's hard-coded registers. Run it after a soft reset
+  (`mpremote soft-reset run` a script that drives GPIO48 low first), then `mpremote reset`: it
+  deinits SPI(1), so the display needs a reset afterwards. This badge (2026-11-08): B1 confirmed;
+  RAM_RW 0x12 and DRFW 0x90 (`003b00a8` vs `003b00a9`) differ from the hard-coded values (not
+  investigated; may be the PR's remap offsets).
+- Smooth schedule text (upstream #23): opt-in with `"smooth_text": true` in `data/panel_config.json`;
+  the schedule apps then render with soft fonts from `/data/fonts/` in grayscale mode.
 - `template.py`: skeleton (copy to a new name).
 
 ## Performance and memory

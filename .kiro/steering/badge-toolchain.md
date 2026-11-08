@@ -96,10 +96,15 @@ Add `-dither None` for flat art; the default Floyd-Steinberg dither suits photos
 - Upstream `main` 87a635e (gray support #22) merged on `sync/upstream-gray` (2026-11-08): `epd.py`
   kept the fork driver and dispatches gray/mixed refreshes to upstream's `lib/epd_grayscale.py`;
   README kept the fork's Menu GPIO line and owner/presence sections.
+- Upstream `main` 2668f6b (#23 smooth text, #27 Photo Upload, #29 Spiral) merged on
+  `sync/upstream-3` (2026-11-08), plus open PRs #30 (OTP read, fixed: GPIO21 re-routed after SPI
+  deinit), #15 (battery overlay, ported into the fork's `run()`) and #26 (HTTP poller, without its
+  committed Wi-Fi credentials; key no longer logged, failures retried after 60 s). Because fork
+  merges are squashes, every sync re-conflicts in `epd.py` and the READMEs even when upstream didn't
+  change them; resolve by keeping ours plus upstream's real delta since the last synced commit.
 - Open upstream PRs not merged as a whole (as of 2026-11-08): #3 (Etch-A-Sketch + input/fast-refresh
-  changes), #6 (only its Mandelbrot app is in), #15 (battery indicator), #20 (app grid), #23 (text
-  smoothing), #26 (HTTP poller; edits `epd.py`, ships `data/wlan_credentials.json`), #27 (Photo
-  Upload over Wi-Fi, `user_apps/`), #29 (Spiral partial-refresh screensaver, `user_apps/`).
+  changes), #6 (only its Mandelbrot app is in), #20 (app grid). #15, #26 and #30 are in the fork
+  but still open upstream.
 - Fork work: uv setup, viper e-paper driver with queued updates (dfa823e), fast refresh (708105e),
   fork PRs #1 button latch, #2 Mandelbrot non-blocking, #3 safe app import, #4 README fixes,
   #5 fast-refresh hold-black, #9 Bluetooth menu toggle; Cosmotronics logo app; boot/e-paper test
