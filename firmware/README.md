@@ -14,16 +14,11 @@ The firmware in `bin/` is lv_micropython (commit 44aa2b153) with LVGL 9: MicroPy
 Stock MicroPython (for example v1.27.0 from https://micropython.org/download/ESP32_GENERIC_S3/, `Firmware (Support for Octal-SPIRAM)`) boots on the badge, but it has no `lvgl` module, so the badge apps won't run on it:
 `esptool.py --baud 460800 write_flash 0 ~/Downloads/ESP32_GENERIC_S3-SPIRAM_OCT-20251209-v1.27.0.bin`
 
-# Build notes (lvgl_micropython) (Deprecated)
-You need to sync the lvgl_micropython submodule and it's recursive submoules.
-Then in `firmware/lvgl_micropython/lib/lv_conf.h`, find `#define LV_USE_LODEPNG 1` and change it to `0`.
-
-lvgl_micropython build command from `firmware/lvgl_micropython`: `GEN_SCRIPT=python python make.py esp32s3 --custom-board-path=../lvgl_billboard_badge/`
-Requires `toml` python package be installed.
-
-Building outputs a command to flash: `~/.espressif/python_env/idf5.5_py3.14_env/bin/python -m esptool --chip esp32s3 -p /dev/ttyACM0 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 16MB --flash_freq 80m --erase-all 0x0 ./build/lvgl_micropy_lvgl_billboard_badge.bin`
-
 # Build notes (lv_micropython)
+
+You should not need to go through this unless you want to modify the LVGL
+behavior or add addional compiled C modules. Most hacking is effective just in 
+micropython (the .py files), which is much easier.
 
 Install esp-idf: https://github.com/lvgl/lv_micropython/blob/master/ports/esp32/README.md#setting-up-the-toolchain-and-esp-idf
 `./install.sh` and `. ./export.sh` in the shell that will be doing builds.

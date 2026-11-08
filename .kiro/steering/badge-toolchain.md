@@ -82,11 +82,20 @@ Add `-dither None` for flat art; the default Floyd-Steinberg dither suits photos
 - Upstream PRs merged and tested on the badge: #9 (soft-reset crash fix), #12 (sao.py), #2 (binfont,
   plus a kerning fix), #13 (Life), #8 (Quick Draw), #7 (menu LED wrap past 48 apps), #11 (simulator +
   fixes), #18 (resume last app, fork PR #6), #19 (owner.json nametag, fork PR #7), #21 (BLE
-  presence, fork PR #8); the Mandelbrot app from #6 without PR #4's driver.
+  presence, fork PR #8); the Mandelbrot app from #6.
 - Upstream maintainer commits cherry-picked (a76b08d): GPIO48 panel power on, 0x70 booster config,
   BUSY wait on either half, `LedBar.set()` writes.
-- Rejected: #3 and #4 (hardware SPI e-paper failure, see `badge-epaper.md`); their viper split,
-  byte LUT and fast-refresh ideas were ported onto SoftSPI. #20 (app grid) not taken.
+- Upstream `main` 52c2ee8 merged in fork PR #11 (`sync/upstream-main`, 2026-11-07): hardware SPI +
+  viper driver (#4, merged upstream), KITT (#24) and Game of Life (#13) moved to `user_apps/`,
+  printable back cover (#17), README fixes (#16). `epd.py` kept the fork's split, queued updates,
+  fast refresh and hold-black on top of upstream's SPI; upstream's per-flush print and LED flash in
+  `_lv_flush` were dropped. Same PR: soft-reset SPI re-init (3c3c079, reported upstream as issue #25)
+  and the new CT emblem logo.
+- Upstream wants community apps in `user_apps/<name>/`, installed by hand with `mpremote cp`. Since
+  the sync, Life and KITT are not in `firmware/badge/apps/`, so not in the menu.
+- Open upstream PRs not merged as a whole (as of 2026-11-07): #3 (Etch-A-Sketch + input/fast-refresh
+  changes), #6 (only its Mandelbrot app is in), #15 (battery indicator), #20 (app grid), #22 (gray
+  support), #23 (text smoothing).
 - Fork work: uv setup, viper e-paper driver with queued updates (dfa823e), fast refresh (708105e),
   fork PRs #1 button latch, #2 Mandelbrot non-blocking, #3 safe app import, #4 README fixes,
   #5 fast-refresh hold-black, #9 Bluetooth menu toggle; Cosmotronics logo app; boot/e-paper test

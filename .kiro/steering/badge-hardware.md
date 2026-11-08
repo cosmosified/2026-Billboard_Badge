@@ -55,7 +55,7 @@ map), `billboard_pcb_BOM.csv`, `production/netlist.ipc`. Live probe of a badge o
 | 41 | free | TP9 test pad | `board.TP9_GPIO41` |
 | 42 | SAO1_GPIO2 | J8 pin 6 | |
 | 43/44 | U0TXD/U0RXD | TP3 "TX" / TP4 "RX" test pads (TP5 GND) | not used; board.py says UART(1) interferes with EPD |
-| 45 | unconnected | strap pin; epd.py uses it as a dummy SoftSPI MISO | |
+| 45 | unconnected | strap pin; epd.py uses it as a dummy SPI MISO | |
 | 46 | unconnected | strap pin | |
 | 47 | EPD_SDA | SPI MOSI (3-wire, write-only), both CoGs | |
 | 48 | EPD_PWR_ENABLE | Q2 P-FET gate, active low, no pull-up | `epd.EPD_PWR_EN_PIN`, driven low (panel on) at import |

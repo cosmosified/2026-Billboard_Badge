@@ -3,6 +3,8 @@
 # Badge Hardware
 The badge uses a 9.7 inch Pervasive Displays E2969JS0B1 electronic paper panel that was recycled from price tags which were destined for a now bankrupt German department store chain, coupled with an ESP32-S3 microcontroller.
 
+A printable snap-on back cover is in [hardware/back_cover](hardware/back_cover).
+
 ## Pins
 
 The board only has two truly free GPIOs
@@ -25,7 +27,7 @@ The row of WS2812-compatible LEDs is on GPIO38
 * User A/B: GPIO39 / GPIO16
 
 # Applications
-In its out of the box configuration the badge can show the 2026 Supercon schedule, act as a digital name tag, and cycle through a built-in collection of art from Hackaday's incredible Art Director Joe Kim. If you come up with additional apps that you'd like to share, feel free to make a pull request.
+In its out of the box configuration the badge can show the 2026 Supercon schedule, act as a digital name tag, and cycle through a built-in collection of art from Hackaday's incredible Art Director Joe Kim. If you come up with additional apps that you'd like to share, feel free to make a pull request. Please add new apps into the `user_apps/` directory, not in `firmware/badge/apps/` so everyone can choose which new apps they want to take on their badge.
 
 ## Owner profile (`/data/owner.json`)
 
@@ -68,3 +70,8 @@ The badge firmware picks a color for each pixel based on this logic:
 Additionally, since the display is so large, loading large images can easily run out of memory. Therefore, it is best to compress each image down to a limited color space before placing on the badge. This is easily done with [ImageMagick](https://imagemagick.org/), namely with the command `magick oldfile.png -remap scripts/palette.gif newfile.png`. This reduces the image down to a colorspace that only supports 3 colors, which are white, black, and red.
 
 Based on the above pixel logic, where each pixel is already one of the three supported colors, it's easy to see how the image will be displayed. Luckily, but converting the image on your computer, you can see what it will look like before rendering it on the badge.
+
+
+# Contributing
+
+We are looking at PRs over the weekend, but we're also busy with the conference so it may take a while to look at them. Please put user apps and infrastructure changes into separate PRs so they are easier to review. We want to take apps more quickly, and infrastructure updates a little more carefully.

@@ -32,13 +32,14 @@ Detailed knowledge (loaded on demand):
   program can hold the port: stop serial loggers before running `mpremote`.
 
 ## Rules that bite
-- Full refresh: ~36 s end to end (0.6 s reset, ~1.2-1.5 s blocking send, 1.4 s CoG init, ~33 s
-  waveform). `display.update(fast=True)`: ~7.6 s, 3 short flashes, black stays black with the
+- Full refresh: ~34 s end to end (0.6 s reset, ~0.1 s blocking send, 1.4 s CoG init, ~33 s
+  waveform). `display.update(fast=True)`: ~6.6 s, 3 short flashes, black stays black with the
   hold-black fix; red needs a full refresh. No partial (windowed) refresh exists.
 - `display.update()` only sets an event; `display.run()` does the work. An update requested during a
   refresh is queued (one more refresh follows), not dropped.
-- Keep the e-paper on SoftSPI at 8 MHz (`lib/epd.py`). Hardware SPI (upstream PRs #3, #4) failed
-  silently on this badge: refresh "done" in ~2 s, BUSY barely asserted, screen unchanged.
+- The e-paper uses hardware SPI(1) at 20 MHz (`lib/epd.py`). After a soft reset the bus must be
+  constructed, deinited and constructed again, or the refresh "finishes" in ~2 s with the screen
+  unchanged (upstream issue #25). Test driver changes after a hard reset and after Ctrl-C/Ctrl-D.
 - The badge resumes the last app at boot. Hold a Menu button during reset to get the menu, or
   create `/data/boot.json` with `{"resume": false}`.
 - LEDs are very bright: channel values 0-3 for status, 20-50 is already vivid.

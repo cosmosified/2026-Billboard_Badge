@@ -32,7 +32,7 @@ import asyncio as aio
 import btree
 import framebuf
 import gc
-from machine import Pin, SoftSPI
+from machine import Pin, SPI, SoftSPI
 import micropython
 from micropython import const
 import sys
@@ -41,6 +41,7 @@ import time
 import lvgl
 
 from lib.large_png import show_png
+from lib.led_bar import leds
 
 EPD_CS1_PIN = Pin(13, mode=Pin.OUT)
 EPD_CS2_PIN = Pin(3, mode=Pin.OUT)
@@ -171,15 +172,27 @@ class EPaperDisplay:
     height = display_height
 
     def __init__(self) -> None:
-        print("Initializing E-Paper Display")
+        print("Initializing E-Paper Display (Fast Hardware SPI + Viper)")
         EPD_DC_PIN.value(True)
         EPD_RST_PIN.value(True)
         EPD_CS1_PIN.value(True)
         EPD_CS2_PIN.value(True)
-        self.spi = SoftSPI(
-            baudrate=8_000_000, sck=EPD_SCL_PIN, mosi=EPD_SDA_PIN, miso=EPD_SPI_MISO_PIN
-        )
-        self.spi.init()
+        try:
+            # After a soft reset SPI(1) keeps its settings but the pins lose
+            # their routing, and the constructor skips re-init when the
+            # settings match: the bus writes nothing (refresh "done" in ~2 s,
+            # panel unchanged). Deinit and construct again to force a full init.
+            spi_args = dict(baudrate=20_000_000, sck=EPD_SCL_PIN, mosi=EPD_SDA_PIN, miso=EPD_SPI_MISO_PIN)
+            SPI(1, **spi_args).deinit()
+            self.spi = SPI(1, **spi_args)
+        except Exception:
+            self.spi = SoftSPI(
+                baudrate=8_000_000,
+                sck=EPD_SCL_PIN,
+                mosi=EPD_SDA_PIN,
+                miso=EPD_SPI_MISO_PIN,
+            )
+            self.spi.init()
 
         try:
             with open("/data/hwconf", "rb") as f:
@@ -200,6 +213,8 @@ class EPaperDisplay:
 
         # The framebuffers are set and display should be updated.
         self._framebuffer_ready = aio.Event()
+        self._png_blink = False
+        self._refreshing_hw = False
 
         """Each byte is a mini-row of 8 bits for pixels of one color (1 sets the color, 0 is white)
         Bytes are in rows across the screen, as seen on the badge
@@ -223,7 +238,10 @@ class EPaperDisplay:
         self._display_updated.set()
         gc.collect()
 
-        # Set up lvgl
+        # Set up lvgl (deinit first if soft-rebooted so C pointers don't corrupt)
+        if hasattr(lvgl, "is_initialized") and lvgl.is_initialized():
+            if hasattr(lvgl, "deinit"):
+                lvgl.deinit()
         lvgl.init()
         # Give LVGL a buffer 2-bytes-per-pixel for RGB565 format
         self._lv_draw_buf = bytearray(display_width * display_height * 2)
@@ -231,7 +249,9 @@ class EPaperDisplay:
         self.lv_display = lvgl.display_create(display_width, display_height)
         self.lv_display.set_color_format(lvgl.COLOR_FORMAT.RGB565)
         self.lv_display.set_buffers(
-            self._lv_draw_buf, None, len(self._lv_draw_buf),
+            self._lv_draw_buf,
+            None,
+            len(self._lv_draw_buf),
             lvgl.DISPLAY_RENDER_MODE.PARTIAL,
         )
         self.lv_display.set_flush_cb(self._lv_flush)
@@ -290,12 +310,24 @@ class EPaperDisplay:
                 self.red.pixel((col + img_c), (row + img_r), int(red))
 
     def draw_png(self, filename: str, row: int = 0, col: int = 0):
-
         gc.collect()
+        self._png_blink = not self._png_blink
+        leds[0] = (0, 0, 50) if self._png_blink else (0, 0, 10)
+        leds.write()
         print(f"Loading {filename} This will take a while... {time.time()}")
         show_png(filename, self._framebuffer_black, self._framebuffer_red, row, col)
+        leds[0] = (0, 0, 0)
+        leds.write()
         print("Done loading png")
         gc.collect()
+
+    async def _blink_red_while_refreshing(self):
+        state = False
+        while self._refreshing_hw:
+            state = not state
+            leds[0] = (40, 0, 0) if state else (0, 0, 0)
+            leds.write()
+            await aio.sleep_ms(200)
 
     async def run(self):
         black_left = bytearray(half_frame_one_color_size)
@@ -546,7 +578,6 @@ class EPaperDisplay:
         self._send_index_data_right(0x10, black_right)  # black frame for right half
         self._send_index_data_right(0x12, ram_rw_data)  # RAM_RW for right half
         self._send_index_data_right(0x11, red_right)  # Red frame for right half
-
 
     async def _dcdc_soft_start(self):
         """DC-DC soft-start command
