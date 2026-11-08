@@ -16,19 +16,21 @@ This layout uses no rails.
 
 Standard SAO pinout, with VCC top left as checked on the badge. **GND is directly below VCC.**
 
-| | col 1 | col 2 | col 3 |
+| | col 8 | col 9 | col 10 |
 |---|---|---|---|
 | row B (top) | VCC | SDA | GPIO1 |
 | row A (bottom) | GND | SCL | GPIO2 |
 
-The header goes on the **back**, with its pins in B1-B3 and A1-A3, soldered on the front.
+The header goes on the **back**, centered on the board (columns 8-10, under the middle of the
+LTR390), with its pins in B8-B10 and A8-A10, soldered on the front. That centers the add-on on the
+badge connector.
 
 ## Build
 
-1. **Cut 3 links** on the front, between rows A and B in columns 1, 2 and 3 (red X in the photo).
+1. **Cut 3 links** on the front, between rows A and B in columns 8, 9 and 10 (red X in the photo).
    Without the cuts, VCC/GND, SDA/SCL and GPIO1/GPIO2 would be shorted in pairs.
-   Check: B1-A1, B2-A2 and B3-A3 must **not** beep.
-2. **Box header** on the back: VCC pin in **B1**, GND in **A1**, key facing the same way as on the
+   Check: B8-A8, B9-A9 and B10-A10 must **not** beep.
+2. **Box header** on the back: VCC pin in **B8**, GND in **A8**, key facing the same way as on the
    badge. Solder on the front.
 3. **LTR390** on the front, sensor side up, pins in row **J**: VIN 6, 3Vo 7, GND 8, SCL 9, SDA 10,
    INT 11. Its board overhangs the top edge.
@@ -36,18 +38,18 @@ The header goes on the **back**, with its pins in B1-B3 and A1-A3, soldered on t
 
 | Wire | From | To | Net |
 |---|---|---|---|
-| W1 | D1 (column 1 strip, header VCC) | G6 (LTR VIN) | 3.3 V |
-| W2 | A1 (header GND pin) | H8 (LTR GND) | GND |
-| W3 | D2 (column 2 strip, header SDA) | G10 (LTR SDA) | SDA |
-| W4 | A2 (header SCL pin) | H9 (LTR SCL) | SCL |
+| W1 | D8 (column 8 strip, header VCC) | G6 (LTR VIN) | 3.3 V |
+| W2 | A8 (header GND pin) | H8 (LTR GND) | GND |
+| W3 | D9 (column 9 strip, header SDA) | G10 (LTR SDA) | SDA |
+| W4 | A9 (header SCL pin) | H9 (LTR SCL) | SCL |
 
 ```mermaid
 flowchart LR
     subgraph HDR["Box header (back), SAO2"]
-        VCC["VCC B1 (3.3V)"]
-        GND["GND A1"]
-        SDA["SDA B2 (GPIO17)"]
-        SCL["SCL A2 (GPIO18)"]
+        VCC["VCC B8 (3.3V)"]
+        GND["GND A8"]
+        SDA["SDA B9 (GPIO17)"]
+        SCL["SCL A9 (GPIO18)"]
     end
     subgraph UV["LTR390 #4831, addr 0x53"]
         VIN["VIN col 6"]
@@ -63,10 +65,11 @@ flowchart LR
 
 ## Checks before plugging in (continuity, nothing powered)
 
-1. A1 to B1, A2 to B2, A3 to B3: **no** beep (cuts done).
-2. VCC (B1) to GND (A1): **no** beep.
-3. SDA (B2) to SCL (A2): **no** beep.
-4. B1 to the LTR's VIN pin, A1 to its GND pin, B2 to its SDA pin, A2 to its SCL pin: beep.
+1. A8 to B8, A9 to B9, A10 to B10: **no** beep (cuts done).
+2. VCC (B8) to GND (A8): **no** beep.
+3. SDA (B9) to SCL (A9): **no** beep.
+4. B8 to the LTR's VIN pin, A8 to its GND pin, B9 to its SDA pin, A9 to its SCL pin: beep.
+   W2 runs up column 8 over the VCC strip: use insulated wire and check B8 to A8 again after it is in.
 
 ## After plugging in
 
