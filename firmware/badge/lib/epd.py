@@ -207,7 +207,14 @@ class EPaperDisplay:
         # E2969JS084 = "driver 8"; E2969JS0B1 (the default) = "driver B"
         self._driver_b = self._reverse_fb_bits
         self._fast_luts = None  # loaded from data/rendered_luts.py on first fast update
-        self._request = (False, False, None)  # fast, keep_red, passes
+        self._request = (False, False, None, False, False)  # fast, keep_red, passes, grayscale, mixed
+        # Gray waveforms are B1-only (lib/epd_grayscale.py)
+        self._supports_grayscale = self._driver_b
+        self._render_grayscale = False
+        self._render_mixed = False
+        # True while the panel is known to hold only black and white, so a gray
+        # refresh can skip its white clear. Unknown at boot (the image survives).
+        self._panel_monochrome = False
         # Black plane of the last refresh, for FAST_HOLD_BLACK (None = unknown)
         self._prev_black = None
 
@@ -267,11 +274,44 @@ class EPaperDisplay:
         except AttributeError:
             stride = w * 2
         src = color_p.__dereference__(stride * h)
-        _rgb565_to_planes(src, stride, w, h, x1, y1,
-                          self._framebuffer_black, self._framebuffer_red)
+        if self._render_grayscale or self._render_mixed:
+            from lib import epd_grayscale
+            convert = epd_grayscale.rgb565_to_mixed if self._render_mixed else epd_grayscale.rgb565_to_grayscale
+            convert(src, self._framebuffer_black, self._framebuffer_red, x1, y1, w, h, stride)
+        else:
+            _rgb565_to_planes(src, stride, w, h, x1, y1,
+                              self._framebuffer_black, self._framebuffer_red)
         disp.flush_ready()
 
-    def update(self, fast: bool = False, keep_red: bool = False, passes: int | None = None) -> None:
+    @property
+    def supports_grayscale(self) -> bool:
+        return self._supports_grayscale
+
+    def _check_modes(self, grayscale: bool, mixed: bool, fast: bool = False) -> None:
+        if grayscale and mixed:
+            raise ValueError("Choose grayscale or mixed mode")
+        if (grayscale or mixed) and not self._supports_grayscale:
+            raise ValueError("Grayscale refresh requires a B1 panel")
+        if (grayscale or mixed) and fast:
+            raise ValueError("Grayscale and mixed refreshes have no fast mode")
+
+    def refresh_lvgl(self, grayscale: bool = False, mixed: bool = False) -> None:
+        """Render LVGL into the framebuffers; use the same mode in update().
+
+        Default rendering keeps the black/white/red thresholds. grayscale gives
+        black/white/gray; mixed keeps red and adds gray as a fourth color.
+        """
+        self._check_modes(grayscale, mixed)
+        previous = (self._render_grayscale, self._render_mixed)
+        try:
+            self._render_grayscale = grayscale
+            self._render_mixed = mixed
+            lvgl.refr_now(self.lv_display)
+        finally:
+            self._render_grayscale, self._render_mixed = previous
+
+    def update(self, fast: bool = False, keep_red: bool = False, passes: int | None = None,
+               grayscale: bool = False, mixed: bool = False) -> None:
         """Done updating the framebuffer, update the display with the contents.
 
         Returns right away; display.run() does the refresh in the background.
@@ -287,8 +327,13 @@ class EPaperDisplay:
                              drive. On the B1 panel red dims over these frames,
                              and a plain fast refresh restores it.
         `passes` overrides how many times the fast waveform is re-triggered.
+        - update(grayscale=True): B1 only, 00 white, 01 black, 10 gray (no red).
+        - update(mixed=True):     B1 only, 00 white, 01 black, 10 red, 11 gray.
+                             Match the mode used by refresh_lvgl()/draw_png().
+                             Neither has a fast variant.
         """
-        self._request = (fast, keep_red, passes)
+        self._check_modes(grayscale, mixed, fast)
+        self._request = (fast, keep_red, passes, grayscale, mixed)
         self._framebuffer_ready.set()
 
     def clear(self):
@@ -309,13 +354,16 @@ class EPaperDisplay:
                 self.black.pixel((col + img_c), (row + img_r), int(black))
                 self.red.pixel((col + img_c), (row + img_r), int(red))
 
-    def draw_png(self, filename: str, row: int = 0, col: int = 0):
+    def draw_png(self, filename: str, row: int = 0, col: int = 0,
+                 grayscale: bool = False, mixed: bool = False) -> None:
+        """Draw a PNG; use the same grayscale/mixed mode in update()."""
+        self._check_modes(grayscale, mixed)
         gc.collect()
         self._png_blink = not self._png_blink
         leds[0] = (0, 0, 50) if self._png_blink else (0, 0, 10)
         leds.write()
         print(f"Loading {filename} This will take a while... {time.time()}")
-        show_png(filename, self._framebuffer_black, self._framebuffer_red, row, col)
+        show_png(filename, self._framebuffer_black, self._framebuffer_red, row, col, grayscale, mixed)
         leds[0] = (0, 0, 0)
         leds.write()
         print("Done loading png")
@@ -342,11 +390,13 @@ class EPaperDisplay:
                 # while this refresh runs then triggers another refresh,
                 # instead of being dropped.
                 self._framebuffer_ready.clear()
-                fast, keep_red, passes = self._request
+                fast, keep_red, passes, grayscale, mixed = self._request
                 # No fast waveform (missing data/rendered_luts.py) means a full
                 # refresh, which must not get the fast-only hold mask
                 wave = self._fast_lut(keep_red) if fast else None
                 tick = time.ticks_ms()
+                # The gray helpers only combine planes byte by byte, so they
+                # work on the panel-order planes from _split_plane too.
                 lut = _REVERSE_LUT if self._reverse_fb_bits else _IDENTITY_LUT
                 red = self._framebuffer_red
                 if wave is not None and FAST_HOLD_BLACK and self._prev_black is not None:
@@ -357,13 +407,24 @@ class EPaperDisplay:
                     red = hold_red
                 _split_plane(self._framebuffer_black, black_left, black_right, lut)
                 _split_plane(red, red_left, red_right, lut)
-                if self._prev_black is None:
+                if grayscale or mixed:
+                    # Gray sites are set in the black plane, so it no longer
+                    # says which pixels are black on the panel.
+                    self._prev_black = None
+                elif self._prev_black is None:
                     self._prev_black = bytearray(self._framebuffer_black)
                 else:
                     self._prev_black[:] = self._framebuffer_black
                 print("Split planes in", time.ticks_diff(time.ticks_ms(), tick), "ms")
-                await self.global_update(black_left, red_left, black_right, red_right,
-                                         wave, keep_red, passes)
+                if mixed:
+                    from lib.epd_grayscale import mixed_update
+                    await mixed_update(self, black_left, red_left, black_right, red_right)
+                elif grayscale:
+                    from lib.epd_grayscale import grayscale_update
+                    await grayscale_update(self, black_left, red_left, black_right, red_right)
+                else:
+                    await self.global_update(black_left, red_left, black_right, red_right,
+                                             wave, keep_red, passes)
                 gc.collect()
                 if self._framebuffer_ready.is_set():
                     print("Another update was requested during the refresh")
@@ -392,6 +453,8 @@ class EPaperDisplay:
         else:
             mode = f"fast x{passes}{', keep red' if keep_red else ''}"
         print(f"Updating display to new image ({mode})")
+        # Panel content is unknown until this refresh completes
+        self._panel_monochrome = False
         await self._reset()
         tick = time.ticks_ms()
         self._send_images(black_left, red_left, black_right, red_right)
@@ -411,6 +474,10 @@ class EPaperDisplay:
             # Later passes re-trigger the latched waveform; nothing is resent.
             await self._display_refresh()
         await self._dcdc_soft_shutdown()
+        if wave is None:
+            # A fast waveform leaves faint ghosts, so only a full refresh of a
+            # red-free image counts as black and white.
+            self._panel_monochrome = not (any(red_left) or any(red_right))
         print("Done updating display")
         tock = time.ticks_ms()
         print(tock-tick)
