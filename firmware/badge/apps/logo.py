@@ -1,9 +1,16 @@
 """Shows the Cosmotronics CT shield logo, with a random rainbow show on the LED bar.
 
-The image was made from the original PNG with ImageMagick (from firmware/):
-    magick "Glossy Cosmotronics CT Shield Logo.png" -background white -alpha remove \
-        -alpha off -resize 960x672 -gravity center -extent 960x672 \
-        -remap scripts/palette.gif -strip badge/data/graphics/cosmotronics_logo.png
+The image was made from the original PNG with ImageMagick (from firmware/). The
+source has a gray checkerboard baked in instead of transparency, so low-saturation
+mid-gray pixels are turned white first, and specks under 40 pixels are dropped:
+    magick "CosmoTronics CT Superhero Emblem.png" \
+        -fx "saturation<0.25 && lightness>0.4 ? 1 : u" \
+        -resize 960x672 -gravity center -extent 960x672 -dither None \
+        -remap scripts/palette.gif \
+        -define connected-components:area-threshold=40 \
+        -define connected-components:mean-color=true -connected-components 8 \
+        -remap scripts/palette.gif -strip -type palette \
+        badge/data/graphics/cosmotronics_logo.png
 
 The LED bar runs one effect at a time (rainbow flowing left/right, middle/edges,
 pulse, bouncing comet, sparkle), switching to a random one, at a random
