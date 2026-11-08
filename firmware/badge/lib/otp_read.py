@@ -47,7 +47,9 @@ def _read_otp_raw(spi):
     EPD_CS2_PIN.value(True)
 
     sda = Pin(47, mode=Pin.OUT)
-    scl = EPD_SCL_PIN
+    # After spi.deinit() GPIO21 is no longer routed to the GPIO block;
+    # constructing the Pin again routes it back so bit-banging reaches the panel
+    scl = Pin(21, mode=Pin.OUT)
     EPD_DC_PIN.value(False)
     EPD_CS1_PIN.value(False)
     cmd = 0xB9
