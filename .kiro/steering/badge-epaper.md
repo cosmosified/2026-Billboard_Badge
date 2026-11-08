@@ -129,7 +129,7 @@ description: Billboard badge e-paper panel deep dive. Use when changing lib/epd.
   byte by byte), and after a gray or mixed refresh `_prev_black` is dropped, so the next fast frame
   has no hold-black mask.
 - Measured (2026-11-08, `scripts/gray_test.py` after a soft reset): grayscale 49.1 s (includes the
-  white clear), mixed 47.3 s, the following fast frame 7.1 s. Panel look not yet confirmed by eye.
+  white clear), mixed 47.3 s, the following fast frame 7.1 s. All three frames confirmed by eye.
 
 ## Partial refresh (upstream PR #29, Spiral screensaver, not merged; read, not tested)
 - Not windowed: a whole-panel fast waveform where pixels that don't change get table 0 (ground, no
